@@ -5,6 +5,8 @@
 
 #include <pcap/pcap.h>
 
+#include "aes.h"
+
 typedef struct _crackle_state_t {
     int connect_found;
     int preq_found;
@@ -214,11 +216,56 @@ void packet_handler(u_char *user, const struct pcap_pkthdr *h, const u_char *byt
     parse_btle(state, bytes + header_len, h->caplen - header_len);
 }
 
+/*
+ * Calculate the confirm according to the core spec.
+ *
+ *  master: true if you want to calculate the master's confirm, false for slave's
+ *  numeric_key: value between 0 and 999,999 (use 0 for Just Works)
+ *  out: 16 byte buffer for storing the output
+ */
+void calc_confirm(crackle_state_t *state, int master, uint32_t numeric_key, uint8_t *out) {
+    int i;
+    uint8_t p1[16] = { 0, };
+    uint8_t p2[16] = { 0, };
+    uint8_t key[16] = { 0, };
+    uint8_t *rand = master ? state->mrand : state->srand;
+    void *aes_ctx;
+
+    numeric_key = htobe32(numeric_key);
+    memcpy(&key[12], &numeric_key, 4);
+
+    // p1 = pres || preq || rat || iat
+    memcpy(p1 +  0, state->pres, 7);
+    memcpy(p1 +  7, state->preq, 7);
+    p1[14] = state->rat;
+    p1[15] = state->iat;
+
+    // p2 = padding || ia || ra
+    memcpy(p2 +  4, state->ia, 6);
+    memcpy(p2 + 10, state->ra, 6);
+
+    for (i = 0; i < 16; ++i)
+        p1[i] ^= rand[i];
+
+    aes_ctx = aes_encrypt_init(key, 16);
+    aes_encrypt(aes_ctx, p1, out);
+    aes_encrypt_deinit(aes_ctx);
+
+    for (i = 0; i < 16; ++i)
+        p1[i] = out[i] ^ p2[i];
+
+    aes_ctx = aes_encrypt_init(key, 16);
+    aes_encrypt(aes_ctx, p1, out);
+    aes_encrypt_deinit(aes_ctx);
+}
+
 int main(int argc, char **argv) {
     char errbuf[PCAP_ERRBUF_SIZE];
     pcap_t *cap;
     crackle_state_t state;
     int err_count = 0;
+    uint8_t confirm[16] = { 0, };
+    int r;
 
     // reset state
     memset(&state, 0, sizeof(state));
@@ -257,6 +304,11 @@ int main(int argc, char **argv) {
         printf("Giving up due to %d error%s\n", err_count, err_count == 1 ? "" : "s");
         return 1;
     }
+
+    calc_confirm(&state, 1, 0, confirm);
+    r = memcmp(state.mconfirm, confirm, 16);
+    if (r == 0)
+        printf("ding ding ding, using a TK of 0! Just Cracks(tm)\n");
 
     return 0;
 }

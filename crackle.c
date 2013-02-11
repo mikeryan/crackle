@@ -36,6 +36,10 @@ typedef struct _crackle_state_t {
     // encryption response fields
     uint8_t skds[8];
     uint8_t ivs[4];
+
+    uint8_t tk[16];
+    uint8_t stk[16];
+    uint8_t session_key[16];
 } crackle_state_t;
 
 #define PFH_BTLE (30006)
@@ -310,6 +314,36 @@ void calc_confirm(crackle_state_t *state, int master, uint32_t numeric_key, uint
     aes_block(key, p1, out);
 }
 
+void calc_stk(crackle_state_t *state, uint32_t numeric_key) {
+    uint8_t rand[16];
+
+    assert(state != NULL);
+
+    // calculate TK
+    numeric_key = htobe32(numeric_key);
+    memcpy(&state->tk[12], &numeric_key, 4);
+
+    // STK = s1(TK, Srand, Mrand) [pg 1971]
+    // concatenate the lower 8 octets of Srand and MRand
+    memcpy(rand + 0, state->srand + 8, 8);
+    memcpy(rand + 8, state->mrand + 8, 8);
+
+    aes_block(state->tk, rand, state->stk);
+}
+
+void calc_session_key(crackle_state_t *state) {
+    uint8_t skd[16];
+
+    assert(state != NULL);
+
+    // SKD = SKDm || SKDs [pg 2247]
+    memcpy(skd + 0, state->skds, 8);
+    memcpy(skd + 8, state->skdm, 8);
+
+    // sesion key = e(STK, SKD)
+    aes_block(state->stk, skd, state->session_key);
+}
+
 void dump_blob(uint8_t *data, size_t len) {
     unsigned i;
     for (i = 0; i < len; ++i) printf(" %02x", data[i]);
@@ -475,6 +509,11 @@ int main(int argc, char **argv) {
     r = memcmp(state.mconfirm, confirm, 16);
     if (r == 0)
         printf("ding ding ding, using a TK of 0! Just Cracks(tm)\n");
+    else
+        return 1;
+
+    calc_stk(&state, 0);
+    calc_session_key(&state);
 
     return 0;
 }

@@ -13,6 +13,8 @@ typedef struct _crackle_state_t {
     int pres_found;
     int confirm_found;
     int random_found;
+    int enc_req_found;
+    int enc_rsp_found;
 
     // field from connect packet
     uint8_t ia[6], ra[6];
@@ -23,6 +25,16 @@ typedef struct _crackle_state_t {
 
     uint8_t mconfirm[16], sconfirm[16];
     uint8_t mrand[16], srand[16];
+
+    // encryption request fields
+    uint8_t rand[8];
+    uint8_t ediv[2];
+    uint8_t skdm[8];
+    uint8_t ivm[4];
+
+    // encryption response fields
+    uint8_t skds[8];
+    uint8_t ivs[4];
 } crackle_state_t;
 
 #define PFH_BTLE (30006)
@@ -174,6 +186,40 @@ void parse_btle(crackle_state_t *state, const u_char *bytes, size_t len) {
                 }
             }
         }
+
+        // LL Control PDU
+        else if ((flags & 3) == 3) {
+            uint8_t len = read_8(bytes + 5);
+            uint8_t opcode = read_8(bytes + 6);
+
+            // LL_ENC_REQ
+            if (opcode == 0x3) {
+                if (state->enc_req_found)
+                    printf("Warning: found multiple LL_ENC_REQ, only using latest one\n");
+                if (len != 23) {
+                    printf("Warning: LL_ENC_REQ is wrong length (%u), skipping\n", len);
+                    return;
+                }
+                copy_reverse(bytes +  7, state->rand, 8);
+                copy_reverse(bytes + 15, state->ediv, 2);
+                copy_reverse(bytes + 17, state->skdm, 8);
+                copy_reverse(bytes + 25, state->ivm,  4);
+                state->enc_req_found = 1;
+            }
+
+            // LL_ENC_RSP
+            else if (opcode == 0x4) {
+                if (state->enc_rsp_found)
+                    printf("Warning: found multiple LL_ENC_RSP, only using latest one\n");
+                if (len != 13) {
+                    printf("Warning: LL_ENC_RSP is wrong length (%u), skipping\n", len);
+                    return;
+                }
+                copy_reverse(bytes +  7, state->skds, 8);
+                copy_reverse(bytes + 15, state->ivs,  4);
+                state->enc_rsp_found = 1;
+            }
+        }
     }
 }
 
@@ -275,6 +321,8 @@ void dump_state(crackle_state_t *state) {
     printf("pres_found: %d\n", state->pres_found);
     printf("confirm_found: %d\n", state->confirm_found);
     printf("random_found: %d\n", state->random_found);
+    printf("enc_req_found: %d\n", state->enc_req_found);
+    printf("enc_rsp_found: %d\n", state->enc_rsp_found);
 
     if (state->connect_found) {
         printf("IA: ");
@@ -303,6 +351,24 @@ void dump_state(crackle_state_t *state) {
     for (i = 0; i < state->random_found; ++i) {
         printf("%cRAND:", i == 0 ? 'M' : 'S');
         dump_blob(i == 0 ? state->mrand : state->srand, 16);
+    }
+
+    if (state->enc_req_found) {
+        printf("Rand:");
+        dump_blob(state->rand, 8);
+        printf("EDIV:");
+        dump_blob(state->ediv, 2);
+        printf("SKDm:");
+        dump_blob(state->skdm, 8);
+        printf("IVm: ");
+        dump_blob(state->ivm, 4);
+    }
+
+    if (state->enc_rsp_found) {
+        printf("SKDs:");
+        dump_blob(state->skds, 8);
+        printf("IVs: ");
+        dump_blob(state->ivs, 4);
     }
 }
 
@@ -346,6 +412,14 @@ int main(int argc, char **argv) {
     }
     if (state.random_found != 2) {
         printf("Not enough random values found (%d, need 2)\n", state.random_found);
+        ++err_count;
+    }
+    if (!state.enc_req_found) {
+        printf("No LL_ENC_REQ found\n");
+        ++err_count;
+    }
+    if (!state.enc_rsp_found) {
+        printf("No LL_ENC_RSP found\n");
         ++err_count;
     }
     if (err_count > 0) {

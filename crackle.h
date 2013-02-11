@@ -7,7 +7,11 @@
 typedef struct _crackle_state_t crackle_state_t;
 
 // packet handler (called after a packet is sanity checked)
-typedef void (*btle_handler_t)(crackle_state_t *state, const uint8_t *bytes, off_t offset, size_t len);
+typedef void (*btle_handler_t)(crackle_state_t *state,
+                               const struct pcap_pkthdr *h,
+                               const uint8_t *bytes,
+                               off_t offset,
+                               size_t len);
 
 struct _crackle_state_t {
     int connect_found;
@@ -43,6 +47,15 @@ struct _crackle_state_t {
     uint8_t tk[16];
     uint8_t stk[16];
     uint8_t session_key[16];
+    uint8_t iv[8];
+
+    /* decryption */
+    int decryption_active;
+    pcap_dumper_t *dumper;
+    int total_processed;
+    int total_decrypted;
+
+    uint64_t packet_counter[2]; // 0: master, 1: slave
 };
 
 void calc_stk(crackle_state_t *state, uint32_t numeric_key);

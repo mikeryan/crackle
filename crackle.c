@@ -71,7 +71,11 @@ void copy_reverse(const u_char *bytes, uint8_t *dest, size_t len) {
         dest[i] = bytes[len - 1 - i];
 }
 
-static void enc_data_extractor(crackle_state_t *state, const u_char *bytes, off_t offset, size_t len) {
+static void enc_data_extractor(crackle_state_t *state,
+                               const struct pcap_pkthdr *h,
+                               const u_char *bytes,
+                               off_t offset,
+                               size_t len) {
     const uint32_t adv_aa = 0x8e89bed6;
     uint32_t aa;
 
@@ -201,6 +205,103 @@ static void enc_data_extractor(crackle_state_t *state, const u_char *bytes, off_
     }
 }
 
+static void packet_decrypter(crackle_state_t *state,
+                             const struct pcap_pkthdr *h,
+                             const u_char *bytes_in,
+                             off_t offset,
+                             size_t len_in) {
+    const uint32_t adv_aa = 0x8e89bed6;
+    uint32_t aa;
+    uint8_t *bytes, *btle_bytes;
+    struct pcap_pkthdr wh = *h; // copy from input
+
+    assert(state != NULL);
+
+    bytes = malloc(len_in);
+    memcpy(bytes, bytes_in, len_in);
+    btle_bytes = bytes + offset;
+
+    aa = read_32(bytes);
+
+    if (aa == adv_aa)
+        return;
+
+    uint8_t flags = read_8(btle_bytes + 4);
+
+    if (state->decryption_active) {
+        uint8_t len = read_8(btle_bytes + 5);
+
+        // non-empty PDU: decrypt before dumping
+        if (len > 0) {
+            int r, i, j;
+            uint8_t out[64];
+            uint8_t adata[16] = { flags & 0xf3, 0x00, };
+            uint8_t nonce[16];
+            const uint8_t *mic;
+
+            if (len < 5) {
+                printf("Warning: packet is too short to be encrypted (%u), skipping\n", len);
+                return;
+            }
+
+            len -= 4;
+            mic = btle_bytes + 6 + len;
+
+            for (i = 0; i < 100; ++i) {
+                for (j = 0; j < 2; ++j) {
+                    uint64_t counter = state->packet_counter[j] + i;
+                    uint64_t counter_le = htole64(counter);
+
+                    memcpy(nonce, &counter_le, 5);      // 39 bit counter
+                    nonce[4] |= j == 0 ? 0x80 : 0x00;   // direction bit: set for master -> slave
+                    memcpy(nonce + 5, state->iv, 8);
+
+                    r = aes_ccm_ad(state->session_key, 16, nonce, 4,
+                                   btle_bytes + 6, len, adata, 1,
+                                   mic, out);
+                    if (r == 0) {
+                        // copy length
+                        btle_bytes[5] = len;
+
+                        // copy data
+                        memcpy(btle_bytes + 6, out, len);
+                        memcpy(bytes + offset, btle_bytes, len_in - 4);
+
+                        // shorten length in pcap header (no more mic)
+                        wh.caplen -= 4;
+                        wh.len -= 4;
+
+                        ++state->total_decrypted;
+                        state->packet_counter[j] = counter + 1;
+
+                        goto done;
+                    }
+                }
+            }
+
+            // give up
+            printf("Warning: could not decrypt packet! Copying as is..\n");
+            free(bytes);
+            return;
+        }
+    }
+    else {
+        // LL Control PDU
+        if ((flags & 3) == 3) {
+            uint8_t opcode = read_8(btle_bytes + 6);
+            if (opcode == 0x4) // LL_ENC_RSP
+                state->decryption_active = 1;
+        }
+    }
+
+done:
+    ++state->total_processed;
+    pcap_dump((unsigned char *)state->dumper, &wh, bytes);
+
+    free(bytes);
+}
+
+
 void packet_handler(u_char *user, const struct pcap_pkthdr *h, const u_char *bytes) {
     crackle_state_t *state;
     size_t header_len;
@@ -237,7 +338,7 @@ void packet_handler(u_char *user, const struct pcap_pkthdr *h, const u_char *byt
     ppib  = (ppi_btle_t *)(bytes + sizeof(*ppih) + sizeof(*ppifh));
 
     // whew, now that we've got all that out of the way onto the parsing
-    state->btle_handler(state, bytes, header_len, h->caplen);
+    state->btle_handler(state, h, bytes, header_len, h->caplen);
 }
 
 /*
@@ -317,6 +418,13 @@ void calc_session_key(crackle_state_t *state) {
     aes_block(state->stk, skd, state->session_key);
 }
 
+void calc_iv(crackle_state_t *state) {
+    assert(state != NULL);
+
+    copy_reverse(state->ivm, state->iv + 0, 4);
+    copy_reverse(state->ivs, state->iv + 4, 4);
+}
+
 void dump_blob(uint8_t *data, size_t len) {
     unsigned i;
     for (i = 0; i < len; ++i) printf(" %02x", data[i]);
@@ -385,7 +493,7 @@ void dump_state(crackle_state_t *state) {
 }
 
 void usage(void) {
-    printf("Usage: crackle -i <input.pcap> [-v] [-t]\n");
+    printf("Usage: crackle -i <input.pcap> -o <output.pcap> [-v] [-t]\n");
     printf("Cracks Bluetooth Low Energy encryption (AKA Bluetooth Smart)\n");
     printf("\n");
     printf("Optional arguments:\n");
@@ -410,11 +518,16 @@ int main(int argc, char **argv) {
     int opt;
     int verbose = 0, do_tests = 0;
     char *pcap_file = NULL;
+    char *pcap_file_out = NULL;
 
-    while ((opt = getopt(argc, argv, "i:vt")) != -1) {
+    while ((opt = getopt(argc, argv, "i:o:vt")) != -1) {
         switch (opt) {
             case 'i':
                 pcap_file = strdup(optarg);
+                break;
+
+            case 'o':
+                pcap_file_out = strdup(optarg);
                 break;
 
             case 'v':
@@ -440,7 +553,7 @@ int main(int argc, char **argv) {
         return 0;
     }
 
-    if (pcap_file == NULL)
+    if (pcap_file == NULL || pcap_file_out == NULL)
         usage();
 
     // reset state
@@ -500,6 +613,30 @@ int main(int argc, char **argv) {
 
     calc_stk(&state, 0);
     calc_session_key(&state);
+    calc_iv(&state);
+
+    pcap_t *pcap_dumpfile = pcap_open_dead(DLT_PPI, 128);
+    if (pcap_dumpfile == NULL)
+        err(1, "pcap_open_dead: ");
+    state.dumper = pcap_dump_open(pcap_dumpfile, pcap_file_out);
+    if (state.dumper == NULL) {
+        warn("pcap_dump_open");
+        pcap_close(pcap_dumpfile);
+        return 1;
+    }
+
+    state.btle_handler = packet_decrypter;
+
+    cap = pcap_open_offline(pcap_file, errbuf);
+    if (cap == NULL)
+        errx(1, "%s", errbuf);
+    pcap_dispatch(cap, 0, packet_handler, (u_char *)&state);
+    pcap_close(cap);
+
+    pcap_dump_flush(state.dumper);
+    pcap_close(pcap_dumpfile);
+
+    printf("Done, processed %d total packets, decrypted %d\n", state.total_processed, state.total_decrypted);
 
     return 0;
 }

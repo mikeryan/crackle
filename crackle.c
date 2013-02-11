@@ -7,40 +7,7 @@
 #include <pcap/pcap.h>
 
 #include "aes.h"
-
-typedef struct _crackle_state_t {
-    int connect_found;
-    int preq_found;
-    int pres_found;
-    int confirm_found;
-    int random_found;
-    int enc_req_found;
-    int enc_rsp_found;
-
-    // field from connect packet
-    uint8_t ia[6], ra[6];
-    int iat, rat;
-
-    uint8_t preq[7];
-    uint8_t pres[7];
-
-    uint8_t mconfirm[16], sconfirm[16];
-    uint8_t mrand[16], srand[16];
-
-    // encryption request fields
-    uint8_t rand[8];
-    uint8_t ediv[2];
-    uint8_t skdm[8];
-    uint8_t ivm[4];
-
-    // encryption response fields
-    uint8_t skds[8];
-    uint8_t ivs[4];
-
-    uint8_t tk[16];
-    uint8_t stk[16];
-    uint8_t session_key[16];
-} crackle_state_t;
+#include "crackle.h"
 
 #define PFH_BTLE (30006)
 
@@ -67,6 +34,11 @@ typedef struct ppi_btle {
     int8_t rssi_avg;
     uint8_t rssi_count;
 } __attribute__((packed)) ppi_btle_t;
+
+
+/* misc definitions */
+void run_tests(void);
+
 
 uint8_t read_8(const u_char *bytes) {
     return *bytes;
@@ -412,11 +384,12 @@ void dump_state(crackle_state_t *state) {
 }
 
 void usage(void) {
-    printf("Usage: crackle -i <input.pcap> [-v]\n");
+    printf("Usage: crackle -i <input.pcap> [-v] [-t]\n");
     printf("Cracks Bluetooth Low Energy encryption (AKA Bluetooth Smart)\n");
     printf("\n");
     printf("Optional arguments:\n");
     printf("    -v   Be verbose\n");
+    printf("    -t   Run tests against crypto engine\n");
     printf("\n");
     printf("Written by Mike Ryan <mikeryan@lacklustre.net>\n");
     printf("See web site for more info:\n");
@@ -434,10 +407,10 @@ int main(int argc, char **argv) {
 
     // arguments
     int opt;
-    int verbose = 0;
+    int verbose = 0, do_tests = 0;
     char *pcap_file = NULL;
 
-    while ((opt = getopt(argc, argv, "i:v")) != -1) {
+    while ((opt = getopt(argc, argv, "i:vt")) != -1) {
         switch (opt) {
             case 'i':
                 pcap_file = strdup(optarg);
@@ -447,6 +420,10 @@ int main(int argc, char **argv) {
                 verbose = 1;
                 break;
 
+            case 't':
+                do_tests = 1;
+                break;
+
             case '?':
                 usage();
                 break;
@@ -454,6 +431,12 @@ int main(int argc, char **argv) {
             default:
                 printf("?? getopt wtf 0%o ??\n", opt);
         }
+    }
+
+    if (do_tests) {
+        run_tests();
+        printf("All tests passed\n");
+        return 0;
     }
 
     if (pcap_file == NULL)

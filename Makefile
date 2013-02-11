@@ -1,4 +1,4 @@
-OBJS = crackle.o aes.o aes-ccm.o aes-enc.o
+OBJS = crackle.o aes.o aes-ccm.o aes-enc.o test.o
 
 CFLAGS  = -Wall -Werror -O2
 LDFLAGS = -lpcap

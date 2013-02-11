@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <err.h>
+#include <getopt.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -372,6 +373,19 @@ void dump_state(crackle_state_t *state) {
     }
 }
 
+void usage(void) {
+    printf("Usage: crackle -i <input.pcap> [-v]\n");
+    printf("Cracks Bluetooth Low Energy encryption (AKA Bluetooth Smart)\n");
+    printf("\n");
+    printf("Optional arguments:\n");
+    printf("    -v   Be verbose\n");
+    printf("\n");
+    printf("Written by Mike Ryan <mikeryan@lacklustre.net>\n");
+    printf("See web site for more info:\n");
+    printf("    http://lacklustre.net/projects/cracle/\n");
+    exit(1);
+}
+
 int main(int argc, char **argv) {
     char errbuf[PCAP_ERRBUF_SIZE];
     pcap_t *cap;
@@ -379,15 +393,38 @@ int main(int argc, char **argv) {
     int err_count = 0;
     uint8_t confirm[16] = { 0, };
     int r;
+
+    // arguments
+    int opt;
     int verbose = 0;
+    char *pcap_file = NULL;
+
+    while ((opt = getopt(argc, argv, "i:v")) != -1) {
+        switch (opt) {
+            case 'i':
+                pcap_file = strdup(optarg);
+                break;
+
+            case 'v':
+                verbose = 1;
+                break;
+
+            case '?':
+                usage();
+                break;
+
+            default:
+                printf("?? getopt wtf 0%o ??\n", opt);
+        }
+    }
+
+    if (pcap_file == NULL)
+        usage();
 
     // reset state
     memset(&state, 0, sizeof(state));
 
-    if (argc < 2)
-        errx(1, "Usage: %s <input.pcap>", argv[0]);
-
-    cap = pcap_open_offline(argv[1], errbuf);
+    cap = pcap_open_offline(pcap_file, errbuf);
     if (cap == NULL)
         errx(1, "%s", errbuf);
 

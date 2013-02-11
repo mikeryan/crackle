@@ -259,6 +259,53 @@ void calc_confirm(crackle_state_t *state, int master, uint32_t numeric_key, uint
     aes_encrypt_deinit(aes_ctx);
 }
 
+void dump_blob(uint8_t *data, size_t len) {
+    unsigned i;
+    for (i = 0; i < len; ++i) printf(" %02x", data[i]);
+    printf("\n");
+}
+
+void dump_state(crackle_state_t *state) {
+    int i;
+
+    assert(state != NULL);
+
+    printf("connect_found: %d\n", state->connect_found);
+    printf("preq_found: %d\n", state->preq_found);
+    printf("pres_found: %d\n", state->pres_found);
+    printf("confirm_found: %d\n", state->confirm_found);
+    printf("random_found: %d\n", state->random_found);
+
+    if (state->connect_found) {
+        printf("IA: ");
+        print_48(state->ia);
+        printf("RA: ");
+        print_48(state->ra);
+        printf("IAt: %d\n", state->iat);
+        printf("RAt: %d\n", state->rat);
+    }
+
+    if (state->preq_found) {
+        printf("PREQ:");
+        dump_blob(state->preq, 7);
+    }
+
+    if (state->pres_found) {
+        printf("PRES:");
+        dump_blob(state->pres, 7);
+    }
+
+    for (i = 0; i < state->confirm_found; ++i) {
+        printf("%cCONFIRM:", i == 0 ? 'M' : 'S');
+        dump_blob(i == 0 ? state->mconfirm : state->sconfirm, 16);
+    }
+
+    for (i = 0; i < state->random_found; ++i) {
+        printf("%cRAND:", i == 0 ? 'M' : 'S');
+        dump_blob(i == 0 ? state->mrand : state->srand, 16);
+    }
+}
+
 int main(int argc, char **argv) {
     char errbuf[PCAP_ERRBUF_SIZE];
     pcap_t *cap;
@@ -266,6 +313,7 @@ int main(int argc, char **argv) {
     int err_count = 0;
     uint8_t confirm[16] = { 0, };
     int r;
+    int verbose = 0;
 
     // reset state
     memset(&state, 0, sizeof(state));
@@ -304,6 +352,9 @@ int main(int argc, char **argv) {
         printf("Giving up due to %d error%s\n", err_count, err_count == 1 ? "" : "s");
         return 1;
     }
+
+    if (verbose)
+        dump_state(&state);
 
     calc_confirm(&state, 1, 0, confirm);
     r = memcmp(state.mconfirm, confirm, 16);

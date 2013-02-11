@@ -264,6 +264,15 @@ void packet_handler(u_char *user, const struct pcap_pkthdr *h, const u_char *byt
 }
 
 /*
+ * Do AES on the 16 byte block of data.
+ */
+void aes_block(uint8_t *key, uint8_t *data, uint8_t *out) {
+    void *aes_ctx = aes_encrypt_init(key, 16);
+    aes_encrypt(aes_ctx, data, out);
+    aes_encrypt_deinit(aes_ctx);
+}
+
+/*
  * Calculate the confirm according to the core spec.
  *
  *  master: true if you want to calculate the master's confirm, false for slave's
@@ -276,7 +285,6 @@ void calc_confirm(crackle_state_t *state, int master, uint32_t numeric_key, uint
     uint8_t p2[16] = { 0, };
     uint8_t key[16] = { 0, };
     uint8_t *rand = master ? state->mrand : state->srand;
-    void *aes_ctx;
 
     numeric_key = htobe32(numeric_key);
     memcpy(&key[12], &numeric_key, 4);
@@ -294,16 +302,12 @@ void calc_confirm(crackle_state_t *state, int master, uint32_t numeric_key, uint
     for (i = 0; i < 16; ++i)
         p1[i] ^= rand[i];
 
-    aes_ctx = aes_encrypt_init(key, 16);
-    aes_encrypt(aes_ctx, p1, out);
-    aes_encrypt_deinit(aes_ctx);
+    aes_block(key, p1, out);
 
     for (i = 0; i < 16; ++i)
         p1[i] = out[i] ^ p2[i];
 
-    aes_ctx = aes_encrypt_init(key, 16);
-    aes_encrypt(aes_ctx, p1, out);
-    aes_encrypt_deinit(aes_ctx);
+    aes_block(key, p1, out);
 }
 
 void dump_blob(uint8_t *data, size_t len) {

@@ -2,8 +2,14 @@
 #define __CRACKLE_H__
 
 #include <stdint.h>
+#include <pcap.h>
 
-typedef struct _crackle_state_t {
+typedef struct _crackle_state_t crackle_state_t;
+
+// packet handler (called after a packet is sanity checked)
+typedef void (*btle_handler_t)(crackle_state_t *state, const uint8_t *bytes, off_t offset, size_t len);
+
+struct _crackle_state_t {
     int connect_found;
     int preq_found;
     int pres_found;
@@ -11,6 +17,8 @@ typedef struct _crackle_state_t {
     int random_found;
     int enc_req_found;
     int enc_rsp_found;
+
+    btle_handler_t btle_handler;
 
     // field from connect packet
     uint8_t ia[6], ra[6];
@@ -35,7 +43,7 @@ typedef struct _crackle_state_t {
     uint8_t tk[16];
     uint8_t stk[16];
     uint8_t session_key[16];
-} crackle_state_t;
+};
 
 void calc_stk(crackle_state_t *state, uint32_t numeric_key);
 void calc_session_key(crackle_state_t *state);

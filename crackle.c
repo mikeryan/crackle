@@ -4,8 +4,6 @@
 #include <stdint.h>
 #include <string.h>
 
-#include <pcap/pcap.h>
-
 #include "aes.h"
 #include "crackle.h"
 
@@ -73,11 +71,14 @@ void copy_reverse(const u_char *bytes, uint8_t *dest, size_t len) {
         dest[i] = bytes[len - 1 - i];
 }
 
-void parse_btle(crackle_state_t *state, const u_char *bytes, size_t len) {
+static void enc_data_extractor(crackle_state_t *state, const u_char *bytes, off_t offset, size_t len) {
     const uint32_t adv_aa = 0x8e89bed6;
     uint32_t aa;
 
     assert(state != NULL);
+
+    bytes += offset;
+    len -= offset;
 
     aa = read_32(bytes);
 
@@ -236,7 +237,7 @@ void packet_handler(u_char *user, const struct pcap_pkthdr *h, const u_char *byt
     ppib  = (ppi_btle_t *)(bytes + sizeof(*ppih) + sizeof(*ppifh));
 
     // whew, now that we've got all that out of the way onto the parsing
-    parse_btle(state, bytes + header_len, h->caplen - header_len);
+    state->btle_handler(state, bytes, header_len, h->caplen);
 }
 
 /*
@@ -445,11 +446,13 @@ int main(int argc, char **argv) {
     // reset state
     memset(&state, 0, sizeof(state));
 
+    state.btle_handler = enc_data_extractor;
+
     cap = pcap_open_offline(pcap_file, errbuf);
     if (cap == NULL)
         errx(1, "%s", errbuf);
-
     pcap_dispatch(cap, 0, packet_handler, (u_char *)&state);
+    pcap_close(cap);
 
     // cool, now let's check if we have everything we need
     if (!state.connect_found) {

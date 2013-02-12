@@ -513,6 +513,8 @@ int main(int argc, char **argv) {
     int err_count = 0;
     uint8_t confirm[16] = { 0, };
     int r;
+    uint32_t numeric_key;
+    int tk_found = 0;
 
     // arguments
     int opt;
@@ -611,19 +613,32 @@ int main(int argc, char **argv) {
     if (verbose)
         dump_state(&state);
 
-    calc_confirm(&state, 1, 0, confirm);
-    r = memcmp(state.mconfirm, confirm, 16);
-    if (r == 0)
-        printf("ding ding ding, using a TK of 0! Just Cracks(tm)\n");
-    else
+    // brute force the TK, starting with 0 for Just Works
+    for (numeric_key = 0; numeric_key < 1000000; ++numeric_key) {
+        calc_confirm(&state, 1, numeric_key, confirm);
+        r = memcmp(state.mconfirm, confirm, 16);
+        if (r == 0) {
+            tk_found = 1;
+            break;
+        }
+    }
+
+    if (!tk_found) {
+        printf("TK not found, the connection is probably using OOB pairing\n");
+        printf("Sorry d00d :(\n");
         return 1;
+    }
+
+    printf("TK found: %06d\n", numeric_key);
+    if (numeric_key == 0)
+        printf("ding ding ding, using a TK of 0! Just Cracks(tm)\n");
 
     if (pcap_file_out == NULL) {
         printf("Specify an output file with -o to decrypt packets!\n");
         return 0;
     }
 
-    calc_stk(&state, 0);
+    calc_stk(&state, numeric_key);
     calc_session_key(&state);
     calc_iv(&state);
 

@@ -493,7 +493,7 @@ void dump_state(crackle_state_t *state) {
 }
 
 void usage(void) {
-    printf("Usage: crackle -i <input.pcap> -o <output.pcap> [-v] [-t]\n");
+    printf("Usage: crackle -i <input.pcap> [-o <output.pcap>] [-v] [-t]\n");
     printf("Cracks Bluetooth Low Energy encryption (AKA Bluetooth Smart)\n");
     printf("\n");
     printf("Optional arguments:\n");
@@ -553,8 +553,11 @@ int main(int argc, char **argv) {
         return 0;
     }
 
-    if (pcap_file == NULL || pcap_file_out == NULL)
+    if (pcap_file == NULL)
         usage();
+
+    if (pcap_file_out == NULL)
+        printf("Warning: No output file specified. Won't decrypt any packets.\n");
 
     // reset state
     memset(&state, 0, sizeof(state));
@@ -610,6 +613,11 @@ int main(int argc, char **argv) {
         printf("ding ding ding, using a TK of 0! Just Cracks(tm)\n");
     else
         return 1;
+
+    if (pcap_file_out == NULL) {
+        printf("Specify an output file with -o to decrypt packets!\n");
+        return 0;
+    }
 
     calc_stk(&state, 0);
     calc_session_key(&state);

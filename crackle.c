@@ -520,7 +520,7 @@ int main(int argc, char **argv) {
     char *pcap_file = NULL;
     char *pcap_file_out = NULL;
 
-    while ((opt = getopt(argc, argv, "i:o:vt")) != -1) {
+    while ((opt = getopt(argc, argv, "i:o:vth")) != -1) {
         switch (opt) {
             case 'i':
                 pcap_file = strdup(optarg);
@@ -536,6 +536,10 @@ int main(int argc, char **argv) {
 
             case 't':
                 do_tests = 1;
+                break;
+
+            case 'h':
+                usage();
                 break;
 
             case '?':

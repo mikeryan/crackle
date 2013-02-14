@@ -523,7 +523,7 @@ void usage(void) {
     printf("\n");
     printf("Written by Mike Ryan <mikeryan@lacklustre.net>\n");
     printf("See web site for more info:\n");
-    printf("    http://lacklustre.net/projects/cracle/\n");
+    printf("    http://lacklustre.net/projects/crackle/\n");
     exit(1);
 }
 

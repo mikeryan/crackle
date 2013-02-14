@@ -1,0 +1,4 @@
+crackle was written by Mike Ryan <mikeryan@lacklustre.net>
+
+crackle uses the AES-CCM implementation from wpa_supplicant, written by
+Jouni Malinen <j@w1.fi>

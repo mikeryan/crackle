@@ -215,6 +215,7 @@ static void packet_decrypter(crackle_state_t *state,
     uint32_t aa;
     uint8_t *bytes, *btle_bytes;
     struct pcap_pkthdr wh = *h; // copy from input
+    uint8_t *crypted = NULL;
 
     assert(state != NULL);
 
@@ -232,6 +233,11 @@ static void packet_decrypter(crackle_state_t *state,
     if (state->decryption_active) {
         uint8_t len = read_8(btle_bytes + 5);
 
+        if (len > len_in) {
+            printf("Warning: invalid packet (length to long), skipping\n");
+            goto out;
+        }
+
         // non-empty PDU: decrypt before dumping
         if (len > 0) {
             int r, i, j;
@@ -242,11 +248,20 @@ static void packet_decrypter(crackle_state_t *state,
 
             if (len < 5) {
                 printf("Warning: packet is too short to be encrypted (%u), skipping\n", len);
-                return;
+                goto out;
+            }
+            if (len + 6 > len_in) {
+                printf("Warning: truncated packet, skipping\n");
+                goto out;
             }
 
             len -= 4;
             mic = btle_bytes + 6 + len;
+
+            // the AES-CCM imlpementation accesses this buffer up to the next
+            // highest multiple of 16 bytes, so malloc a slighly larger buffer
+            crypted = malloc((len / 16 + 1) * 16);
+            memcpy(crypted, btle_bytes + 6, len);
 
             for (i = 0; i < 100; ++i) {
                 for (j = 0; j < 2; ++j) {
@@ -258,7 +273,7 @@ static void packet_decrypter(crackle_state_t *state,
                     memcpy(nonce + 5, state->iv, 8);
 
                     r = aes_ccm_ad(state->session_key, 16, nonce, 4,
-                                   btle_bytes + 6, len, adata, 1,
+                                   crypted, len, adata, 1,
                                    mic, out);
                     if (r == 0) {
                         // copy length
@@ -292,8 +307,7 @@ static void packet_decrypter(crackle_state_t *state,
 
             // give up
             printf("Warning: could not decrypt packet! Copying as is..\n");
-            free(bytes);
-            return;
+            goto out;
         }
     }
     else {
@@ -309,7 +323,10 @@ done:
     ++state->total_processed;
     pcap_dump((unsigned char *)state->dumper, &wh, bytes);
 
+out:
     free(bytes);
+    if (crypted != NULL)
+        free(crypted);
 }
 
 

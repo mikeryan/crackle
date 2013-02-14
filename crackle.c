@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <ctype.h>
 #include <err.h>
 #include <getopt.h>
 #include <stdint.h>
@@ -493,8 +494,28 @@ void dump_state(crackle_state_t *state) {
 }
 
 void usage(void) {
-    printf("Usage: crackle -i <input.pcap> [-o <output.pcap>] [-v] [-t]\n");
+    printf("Usage: crackle -i <input.pcap> [-o <output.pcap>] [-l <ltk>]\n");
     printf("Cracks Bluetooth Low Energy encryption (AKA Bluetooth Smart)\n");
+    printf("\n");
+    printf("Major modes:  Crack TK // Decrypt with LTK\n");
+    printf("\n");
+    printf("Crack TK:\n");
+    printf("\n");
+    printf("    Input PCAP file must contain a complete pairing conversation. If any\n");
+    printf("    packet is missing, cracking will not proceed. The PCAP file will be\n");
+    printf("    decrypted if -o <output.pcap> is specified. If LTK exchange is in\n");
+    printf("    the PCAP file, the LTK will be dumped to stdout.\n");
+    printf("    \n");
+    printf("Decrypt with LTK:\n");
+    printf("\n");
+    printf("    Input PCAP file must contain at least LL_ENC_REQ and LL_ENC_RSP\n");
+    printf("    (which contain the SKD and IV). The PCAP file will be decrypted if\n");
+    printf("    the LTK is correct.\n");
+    printf("\n");
+    printf("    LTK format: string of hex bytes, no separator, most-significant\n");
+    printf("    octet to least-significant octet.\n");
+    printf("\n");
+    printf("    Example: -l 81b06facd90fe7a6e9bbd9cee59736a7\n");
     printf("\n");
     printf("Optional arguments:\n");
     printf("    -v   Be verbose\n");
@@ -519,10 +540,13 @@ int main(int argc, char **argv) {
     // arguments
     int opt;
     int verbose = 0, do_tests = 0;
+    int do_tk_crack = 1, do_ltk_decrypt = 0;
     char *pcap_file = NULL;
     char *pcap_file_out = NULL;
+    char *ltk = NULL;
+    uint8_t ltk_bytes[16];
 
-    while ((opt = getopt(argc, argv, "i:o:vth")) != -1) {
+    while ((opt = getopt(argc, argv, "i:o:vthl:")) != -1) {
         switch (opt) {
             case 'i':
                 pcap_file = strdup(optarg);
@@ -538,6 +562,12 @@ int main(int argc, char **argv) {
 
             case 't':
                 do_tests = 1;
+                break;
+
+            case 'l':
+                do_tk_crack = 0;
+                do_ltk_decrypt = 1;
+                ltk = strdup(optarg);
                 break;
 
             case 'h':
@@ -559,6 +589,34 @@ int main(int argc, char **argv) {
         return 0;
     }
 
+    if (ltk != NULL) {
+        int i;
+        char byte_str[3] = { 0, };
+        unsigned byte;
+
+        // sanity check length
+        if (strlen(ltk) != 32) {
+            printf("Wrong number of characters in LTK\n");
+            return 1;
+        }
+
+        // make sure all hex
+        for (i = 0; i < 32; ++i) {
+            if (!isxdigit(ltk[i])) {
+                printf("Invalid character in LTK\n");
+                return 1;
+            }
+        }
+
+        // convert the string
+        for (i = 0; i < 16; ++i) {
+            byte_str[0] = ltk[2 * i];
+            byte_str[1] = ltk[2 * i + 1];
+            sscanf(byte_str, "%02x", &byte);
+            ltk_bytes[i] = byte;
+        }
+    }
+
     if (pcap_file == NULL)
         usage();
 
@@ -570,6 +628,9 @@ int main(int argc, char **argv) {
 
     state.btle_handler = enc_data_extractor;
 
+    if (do_ltk_decrypt)
+        memcpy(state.stk, ltk_bytes, 16);
+
     cap = pcap_open_offline(pcap_file, errbuf);
     if (cap == NULL)
         errx(1, "%s", errbuf);
@@ -577,33 +638,37 @@ int main(int argc, char **argv) {
     pcap_close(cap);
 
     // cool, now let's check if we have everything we need
-    if (!state.connect_found) {
-        printf("No connect packet found\n");
-        ++err_count;
+    if (do_tk_crack) {
+        if (!state.connect_found) {
+            printf("No connect packet found\n");
+            ++err_count;
+        }
+        if (!state.preq_found) {
+            printf("No pairing request found\n");
+            ++err_count;
+        }
+        if (!state.pres_found) {
+            printf("No pairing response found\n");
+            ++err_count;
+        }
+        if (state.confirm_found != 2) {
+            printf("Not enough confirm values found (%d, need 2)\n", state.confirm_found);
+            ++err_count;
+        }
+        if (state.random_found != 2) {
+            printf("Not enough random values found (%d, need 2)\n", state.random_found);
+            ++err_count;
+        }
     }
-    if (!state.preq_found) {
-        printf("No pairing request found\n");
-        ++err_count;
-    }
-    if (!state.pres_found) {
-        printf("No pairing response found\n");
-        ++err_count;
-    }
-    if (state.confirm_found != 2) {
-        printf("Not enough confirm values found (%d, need 2)\n", state.confirm_found);
-        ++err_count;
-    }
-    if (state.random_found != 2) {
-        printf("Not enough random values found (%d, need 2)\n", state.random_found);
-        ++err_count;
-    }
-    if (!state.enc_req_found) {
-        printf("No LL_ENC_REQ found\n");
-        ++err_count;
-    }
-    if (!state.enc_rsp_found) {
-        printf("No LL_ENC_RSP found\n");
-        ++err_count;
+    if (do_tk_crack || do_ltk_decrypt) {
+        if (!state.enc_req_found) {
+            printf("No LL_ENC_REQ found\n");
+            ++err_count;
+        }
+        if (!state.enc_rsp_found) {
+            printf("No LL_ENC_RSP found\n");
+            ++err_count;
+        }
     }
     if (err_count > 0) {
         printf("Giving up due to %d error%s\n", err_count, err_count == 1 ? "" : "s");
@@ -613,34 +678,44 @@ int main(int argc, char **argv) {
     if (verbose)
         dump_state(&state);
 
-    // brute force the TK, starting with 0 for Just Works
-    for (numeric_key = 0; numeric_key < 1000000; ++numeric_key) {
-        calc_confirm(&state, 1, numeric_key, confirm);
-        r = memcmp(state.mconfirm, confirm, 16);
-        if (r == 0) {
-            tk_found = 1;
-            break;
+    if (do_tk_crack) {
+        // brute force the TK, starting with 0 for Just Works
+        for (numeric_key = 0; numeric_key < 1000000; ++numeric_key) {
+            calc_confirm(&state, 1, numeric_key, confirm);
+            r = memcmp(state.mconfirm, confirm, 16);
+            if (r == 0) {
+                tk_found = 1;
+                break;
+            }
         }
+
+        if (!tk_found) {
+            printf("TK not found, the connection is probably using OOB pairing\n");
+            printf("Sorry d00d :(\n");
+            return 1;
+        }
+
+        printf("TK found: %06d\n", numeric_key);
+        if (numeric_key == 0)
+            printf("ding ding ding, using a TK of 0! Just Cracks(tm)\n");
+
+        calc_stk(&state, numeric_key);
     }
 
-    if (!tk_found) {
-        printf("TK not found, the connection is probably using OOB pairing\n");
-        printf("Sorry d00d :(\n");
-        return 1;
-    }
+    // at this point we either have the STK from TK cracking or LTK from
+    // command line args
+    calc_session_key(&state);
+    calc_iv(&state);
 
-    printf("TK found: %06d\n", numeric_key);
-    if (numeric_key == 0)
-        printf("ding ding ding, using a TK of 0! Just Cracks(tm)\n");
+    if (verbose) {
+        printf("STK:");
+        dump_blob(state.stk, 16);
+    }
 
     if (pcap_file_out == NULL) {
         printf("Specify an output file with -o to decrypt packets!\n");
         return 0;
     }
-
-    calc_stk(&state, numeric_key);
-    calc_session_key(&state);
-    calc_iv(&state);
 
     pcap_t *pcap_dumpfile = pcap_open_dead(DLT_PPI, 128);
     if (pcap_dumpfile == NULL)

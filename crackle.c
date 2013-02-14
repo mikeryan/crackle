@@ -275,6 +275,16 @@ static void packet_decrypter(crackle_state_t *state,
                         ++state->total_decrypted;
                         state->packet_counter[j] = counter + 1;
 
+                        // check for LTK
+                        if ((btle_bytes[4] & 0x3) == 2 && // L2CAP data
+                                btle_bytes[6] == 17 &&    // 17 bytes long
+                                btle_bytes[10] == 6) {    // encryption info
+                            printf("LTK found: ");
+                            for (i = 0; i < 16; ++i)
+                                printf("%02x", btle_bytes[11 + 15 - i]);
+                            printf("\n");
+                        }
+
                         goto done;
                     }
                 }

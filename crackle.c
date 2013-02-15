@@ -5,6 +5,11 @@
 #include <stdint.h>
 #include <string.h>
 
+#include <sys/param.h>
+#ifdef BSD
+#include <sys/endian.h> // needed for byte swapping
+#endif
+
 #include "aes.h"
 #include "crackle.h"
 

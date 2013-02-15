@@ -4,7 +4,7 @@ INSTALL_DIR ?= /usr/local/bin
 
 OBJS = crackle.o aes.o aes-ccm.o aes-enc.o test.o
 
-CFLAGS  = -Wall -Werror -O2
+CFLAGS  = -Wall -Werror -g
 LDFLAGS = -lpcap
 
 all: crackle

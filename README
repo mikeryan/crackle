@@ -1,7 +1,7 @@
 crackle
 =======
 
-crackle cracks Belutooth Smart Encryption (AKA Bluetooth Low Energy).
+crackle cracks Bluetooth Smart Encryption (AKA Bluetooth Low Energy).
 
 crackle exploits a flaw in the BTLE pairing process that allows an
 attacker to guess or very quickly brute force the TK (Temporary Key).

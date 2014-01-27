@@ -1,9 +1,9 @@
 crackle
 =======
 
-crackle cracks Bluetooth Smart Encryption (AKA Bluetooth Low Energy).
+crackle cracks BLE Encryption (AKA Bluetooth Smart).
 
-crackle exploits a flaw in the BTLE pairing process that allows an
+crackle exploits a flaw in the BLE pairing process that allows an
 attacker to guess or very quickly brute force the TK (Temporary Key).
 With the TK and other data collected from the pairing process, the STK
 (Short Term Key) and later the LTK (Long Term Key) can be collected.
@@ -35,7 +35,7 @@ crackle has two major modes of operation: Crack TK and Decrypt with LTK.
 Crack TK
 --------
 
-In Crack TK mode, crackle brute forces the TK used during a BTLE pairing
+In Crack TK mode, crackle brute forces the TK used during a BLE pairing
 event. crackle exploits the fact that the TK in Just Works(tm) and
 6-digit PIN is a value in the range [0,999999] padded to 128 bits. The
 brute force process takes less than one second on modern CPUs.
@@ -61,7 +61,7 @@ Running Crackle
 Crack TK Mode
 -------------
 
-In Crack TK mode, crackle requires a PCAP file that contains a BTLE
+In Crack TK mode, crackle requires a PCAP file that contains a BLE
 pairing event. The best way to generate such a file is to use an
 Ubertooth to capture a pairing event between a master and a slave.
 

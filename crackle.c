@@ -348,6 +348,7 @@ void packet_handler(u_char *user, const struct pcap_pkthdr *h, const u_char *byt
     // sanity checks below!
     header_len = sizeof(*ppih) + sizeof(*ppifh) + sizeof(*ppib);
     if (h->caplen < header_len) {
+        printf("caplen %u, header_len %zu\n", h->caplen, header_len);
         printf("Warning: short packet, skipping\n");
         return;
     }
@@ -566,19 +567,20 @@ int main(int argc, char **argv) {
     int err_count = 0;
     uint8_t confirm[16] = { 0, };
     int r;
-    uint32_t numeric_key;
+    int32_t numeric_key;
     int tk_found = 0;
 
     // arguments
     int opt;
     int verbose = 0, do_tests = 0;
     int do_tk_crack = 1, do_ltk_decrypt = 0;
+    int do_reverse = 0;
     char *pcap_file = NULL;
     char *pcap_file_out = NULL;
     char *ltk = NULL;
     uint8_t ltk_bytes[16];
 
-    while ((opt = getopt(argc, argv, "i:o:vthl:")) != -1) {
+    while ((opt = getopt(argc, argv, "i:o:vthl:r")) != -1) {
         switch (opt) {
             case 'i':
                 pcap_file = strdup(optarg);
@@ -600,6 +602,10 @@ int main(int argc, char **argv) {
                 do_tk_crack = 0;
                 do_ltk_decrypt = 1;
                 ltk = strdup(optarg);
+                break;
+
+            case 'r':
+                do_reverse = 1;
                 break;
 
             case 'h':
@@ -712,12 +718,23 @@ int main(int argc, char **argv) {
 
     if (do_tk_crack) {
         // brute force the TK, starting with 0 for Just Works
-        for (numeric_key = 0; numeric_key < 1000000; ++numeric_key) {
-            calc_confirm(&state, 1, numeric_key, confirm);
-            r = memcmp(state.mconfirm, confirm, 16);
-            if (r == 0) {
-                tk_found = 1;
-                break;
+        if (do_reverse) {
+            for (numeric_key = 999999; numeric_key >= 0; --numeric_key) {
+                calc_confirm(&state, 1, numeric_key, confirm);
+                r = memcmp(state.mconfirm, confirm, 16);
+                if (r == 0) {
+                    tk_found = 1;
+                    break;
+                }
+            }
+        } else {
+            for (numeric_key = 999999; numeric_key >= 0; --numeric_key) {
+                calc_confirm(&state, 1, numeric_key, confirm);
+                r = memcmp(state.mconfirm, confirm, 16);
+                if (r == 0) {
+                    tk_found = 1;
+                    break;
+                }
             }
         }
 
@@ -727,9 +744,11 @@ int main(int argc, char **argv) {
             return 1;
         }
 
+        printf("\n\n!!!\n");
         printf("TK found: %06d\n", numeric_key);
         if (numeric_key == 0)
             printf("ding ding ding, using a TK of 0! Just Cracks(tm)\n");
+        printf("!!!\n\n");
 
         calc_stk(&state, numeric_key);
     }

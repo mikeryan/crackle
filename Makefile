@@ -1,16 +1,18 @@
 CC          ?= gcc
 INSTALL     ?= /usr/bin/install
-INSTALL_DIR ?= /usr/local/bin
+DESTDIR     ?= 
+PREFIX      ?= /usr/local
+INSTALL_DIR ?= $(DESTDIR)/$(PREFIX)/bin
 
 OBJS = crackle.o aes.o aes-ccm.o aes-enc.o test.o
 
-CFLAGS  = -Wall -Werror -g
-LDFLAGS = -lpcap
+CFLAGS  ?= -Wall -Werror -g
+LDFLAGS ?= 
 
 all: crackle
 
 crackle: $(OBJS)
-	$(CC) -o crackle $(OBJS) $(LDFLAGS)
+	$(CC) $(CFLAGS) -o crackle $(OBJS) -lpcap $(LDFLAGS)
 
 install: crackle
 	$(INSTALL) -m 0755 crackle $(INSTALL_DIR)

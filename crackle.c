@@ -728,7 +728,7 @@ int main(int argc, char **argv) {
                 }
             }
         } else {
-            for (numeric_key = 999999; numeric_key >= 0; --numeric_key) {
+            for (numeric_key = 0; numeric_key <= 999999; numeric_key++) {
                 calc_confirm(&state, 1, numeric_key, confirm);
                 r = memcmp(state.mconfirm, confirm, 16);
                 if (r == 0) {

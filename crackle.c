@@ -96,7 +96,7 @@ static void enc_data_extractor(crackle_state_t *state,
         uint8_t flags = read_8(bytes + 4);
 
         // connect packet, grab those addresses!
-        if ((flags % 0xf) == 5) {
+        if ((flags & 0xf) == 5) {
             if (state->connect_found)
                 printf("Warning: found multiple connects, only using the latest one\n");
             state->connect_found = 1;

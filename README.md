@@ -22,6 +22,7 @@ Table of Contents
     - Crack TK
     - Decrypt with LTK
  - Running crackle
+ - Sample Files
  - See Also
  - Thanks
 
@@ -114,6 +115,15 @@ To decrypt all packets, add the -o option:
 
 The output file will be produced similarly to the output file described
 above.
+
+
+Sample Files
+============
+
+Grab some sample files for cracking with crackle. Refer to the README
+inside the tarball for more information:
+
+https://lacklustre.net/bluetooth/crackle-sample.tgz
 
 
 See Also

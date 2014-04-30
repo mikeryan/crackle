@@ -245,7 +245,7 @@ static void packet_decrypter(crackle_state_t *state,
         uint8_t len = read_8(btle_bytes + 5);
 
         if (len > len_in) {
-            printf("Warning: invalid packet (length to long), skipping\n");
+            printf("Warning: invalid packet (length too long), skipping\n");
             goto out;
         }
 

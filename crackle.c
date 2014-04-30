@@ -234,7 +234,7 @@ static void packet_decrypter(crackle_state_t *state,
     memcpy(bytes, bytes_in, len_in);
     btle_bytes = bytes + offset;
 
-    aa = read_32(bytes);
+    aa = read_32(btle_bytes);
 
     if (aa == adv_aa)
         return;

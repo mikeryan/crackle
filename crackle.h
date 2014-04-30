@@ -25,6 +25,7 @@ struct _crackle_state_t {
     btle_handler_t btle_handler;
 
     // field from connect packet
+    uint32_t aa;
     uint8_t ia[6], ra[6];
     int iat, rat;
 

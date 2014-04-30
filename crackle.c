@@ -107,6 +107,7 @@ static void enc_data_extractor(crackle_state_t *state,
                 printf("Warning: found multiple connects, only using the latest one\n");
             state->connect_found = 1;
 
+            state->aa = read_32(bytes + 18);
             read_48(bytes + 6, state->ia);
             read_48(bytes + 12, state->ra);
             state->iat = (flags & 0x40) ? 1 : 0;
@@ -222,7 +223,6 @@ static void packet_decrypter(crackle_state_t *state,
                              const u_char *bytes_in,
                              off_t offset,
                              size_t len_in) {
-    const uint32_t adv_aa = 0x8e89bed6;
     uint32_t aa;
     uint8_t *bytes, *btle_bytes;
     struct pcap_pkthdr wh = *h; // copy from input
@@ -236,7 +236,7 @@ static void packet_decrypter(crackle_state_t *state,
 
     aa = read_32(btle_bytes);
 
-    if (aa == adv_aa)
+    if (aa != state->aa)
         return;
 
     uint8_t flags = read_8(btle_bytes + 4);
@@ -479,6 +479,7 @@ void dump_state(crackle_state_t *state) {
     printf("enc_rsp_found: %d\n", state->enc_rsp_found);
 
     if (state->connect_found) {
+        printf("AA: %08x\n", state->aa);
         printf("IA: ");
         print_48(state->ia);
         printf("RA: ");

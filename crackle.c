@@ -71,6 +71,12 @@ void print_48(uint8_t *val) {
     printf("%02x\n", val[5]);
 }
 
+void dump_blob(uint8_t *data, size_t len) {
+    unsigned i;
+    for (i = 0; i < len; ++i) printf(" %02x", data[i]);
+    printf("\n");
+}
+
 void copy_reverse(const u_char *bytes, uint8_t *dest, size_t len) {
     unsigned i;
     for (i = 0; i < len; ++i)
@@ -457,12 +463,6 @@ void calc_iv(crackle_state_t *state) {
 
     copy_reverse(state->ivm, state->iv + 0, 4);
     copy_reverse(state->ivs, state->iv + 4, 4);
-}
-
-void dump_blob(uint8_t *data, size_t len) {
-    unsigned i;
-    for (i = 0; i < len; ++i) printf(" %02x", data[i]);
-    printf("\n");
 }
 
 void dump_state(crackle_state_t *state) {

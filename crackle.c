@@ -590,8 +590,9 @@ int main(int argc, char **argv) {
     pcap_t *cap;
     crackle_state_t state;
     int err_count = 0;
-    uint8_t confirm[16] = { 0, };
-    int r;
+    uint8_t confirm_mrand[16] = { 0, };
+    uint8_t confirm_srand[16] = { 0, };
+    int r1, r2;
     int32_t numeric_key;
     int tk_found = 0;
 
@@ -714,8 +715,8 @@ int main(int argc, char **argv) {
             printf("No pairing response found\n");
             ++err_count;
         }
-        if (state.confirm_found != 2) {
-            printf("Not enough confirm values found (%d, need 2)\n", state.confirm_found);
+        if (!state.confirm_found) {
+            printf("No confirm values found, at least one is needed\n");
             ++err_count;
         }
         if (state.random_found != 2) {
@@ -745,18 +746,22 @@ int main(int argc, char **argv) {
         // brute force the TK, starting with 0 for Just Works
         if (do_reverse) {
             for (numeric_key = 999999; numeric_key >= 0; --numeric_key) {
-                calc_confirm(&state, 1, numeric_key, confirm);
-                r = memcmp(state.mconfirm, confirm, 16);
-                if (r == 0) {
+                calc_confirm(&state, 1, numeric_key, confirm_mrand);
+                calc_confirm(&state, 0, numeric_key, confirm_srand);
+                r1 = memcmp(state.mconfirm, confirm_mrand, 16);
+                r2 = memcmp(state.mconfirm, confirm_srand, 16);
+                if (r1 == 0 || r2 == 0) {
                     tk_found = 1;
                     break;
                 }
             }
         } else {
             for (numeric_key = 0; numeric_key <= 999999; numeric_key++) {
-                calc_confirm(&state, 1, numeric_key, confirm);
-                r = memcmp(state.mconfirm, confirm, 16);
-                if (r == 0) {
+                calc_confirm(&state, 1, numeric_key, confirm_mrand);
+                calc_confirm(&state, 0, numeric_key, confirm_srand);
+                r1 = memcmp(state.mconfirm, confirm_mrand, 16);
+                r2 = memcmp(state.mconfirm, confirm_srand, 16);
+                if (r1 == 0 || r2 == 0) {
                     tk_found = 1;
                     break;
                 }

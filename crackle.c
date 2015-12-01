@@ -269,7 +269,8 @@ static void packet_decrypter(crackle_state_t *state,
         uint8_t len = read_8(btle_bytes + 5);
 
         if (len > len_in) {
-            printf("Warning: invalid packet (length too long), skipping\n");
+            if (!state->test_decrypt)
+                printf("Warning: invalid packet (length too long), skipping\n");
             goto out;
         }
 
@@ -282,11 +283,13 @@ static void packet_decrypter(crackle_state_t *state,
             const uint8_t *mic;
 
             if (len < 5) {
-                printf("Warning: packet is too short to be encrypted (%u), skipping\n", len);
+                if (!state->test_decrypt)
+                    printf("Warning: packet is too short to be encrypted (%u), skipping\n", len);
                 goto out;
             }
             if (len + 6 > len_in) {
-                printf("Warning: truncated packet, skipping\n");
+                if (!state->test_decrypt)
+                    printf("Warning: truncated packet, skipping\n");
                 goto out;
             }
 
@@ -325,14 +328,16 @@ static void packet_decrypter(crackle_state_t *state,
                         ++state->total_decrypted;
                         state->packet_counter[j] = counter + 1;
 
-                        // check for LTK
-                        if ((btle_bytes[4] & 0x3) == 2 && // L2CAP data
-                                btle_bytes[6] == 17 &&    // 17 bytes long
-                                btle_bytes[10] == 6) {    // encryption info
-                            printf("LTK found: ");
-                            for (i = 0; i < 16; ++i)
-                                printf("%02x", btle_bytes[11 + 15 - i]);
-                            printf("\n");
+                        if (!state->test_decrypt) {
+                            // check for LTK
+                            if ((btle_bytes[4] & 0x3) == 2 && // L2CAP data
+                                    btle_bytes[6] == 17 &&    // 17 bytes long
+                                    btle_bytes[10] == 6) {    // encryption info
+                                printf("LTK found: ");
+                                for (i = 0; i < 16; ++i)
+                                    printf("%02x", btle_bytes[11 + 15 - i]);
+                                printf("\n");
+                            }
                         }
 
                         goto done;
@@ -341,7 +346,11 @@ static void packet_decrypter(crackle_state_t *state,
             }
 
             // give up
-            printf("Warning: could not decrypt packet! Copying as is..\n");
+            if (!state->test_decrypt)
+                printf("Warning: could not decrypt packet! Copying as is..\n");
+            else
+                pcap_breakloop(state->cap);
+
             goto out;
         }
     }
@@ -356,7 +365,8 @@ static void packet_decrypter(crackle_state_t *state,
 
 done:
     ++state->total_processed;
-    pcap_dump((unsigned char *)state->dumper, &wh, bytes);
+    if (!state->test_decrypt)
+        pcap_dump((unsigned char *)state->dumper, &wh, bytes);
 
 out:
     free(bytes);
@@ -794,35 +804,26 @@ int main(int argc, char **argv) {
     calc_iv(&state);
 
     if (do_stk_crack) {
-        for (numeric_key = -5; numeric_key <= 999999; numeric_key++) {
-            printf("\n\n\n\nTrying TK: %d\n", numeric_key);
+        for (numeric_key = 0; numeric_key <= 999999; numeric_key++) {
+            if (verbose && numeric_key % 1000 == 0) {
+                printf("Trying TK: %d\n", numeric_key);
+            }
             memcpy(&dup_state, &state, sizeof(crackle_state_t));
             calc_stk(&dup_state, numeric_key);
+            dup_state.test_decrypt = 1;
 
             // at this point we either have the STK from TK cracking or LTK from
             // command line args
             calc_session_key(&dup_state);
 
-            pcap_t *pcap_dumpfile = pcap_open_dead(DLT_PPI, 128);
-            if (pcap_dumpfile == NULL)
-                err(1, "pcap_open_dead: ");
-            dup_state.dumper = pcap_dump_open(pcap_dumpfile, "/dev/null");
-            if (dup_state.dumper == NULL) {
-                warn("pcap_dump_open");
-                pcap_close(pcap_dumpfile);
-                return 1;
-            }
-
             dup_state.btle_handler = packet_decrypter;
 
             cap = pcap_open_offline(pcap_file, errbuf);
+            dup_state.cap = cap;
             if (cap == NULL)
                 errx(1, "%s", errbuf);
             pcap_dispatch(cap, 0, packet_handler, (u_char *)&dup_state);
             pcap_close(cap);
-
-            pcap_dump_flush(dup_state.dumper);
-            pcap_close(pcap_dumpfile);
 
             if (dup_state.total_decrypted > 0) {
                 tk_found = 1;

@@ -55,6 +55,8 @@ struct _crackle_state_t {
     pcap_dumper_t *dumper;
     int total_processed;
     int total_decrypted;
+    pcap_t *cap;
+    int test_decrypt;
 
     uint64_t packet_counter[2]; // 0: master, 1: slave
 };

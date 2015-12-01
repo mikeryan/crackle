@@ -1,13 +1,13 @@
 CC          ?= gcc
 INSTALL     ?= /usr/bin/install
-DESTDIR     ?= 
+DESTDIR     ?=
 PREFIX      ?= /usr/local
 INSTALL_DIR ?= $(DESTDIR)/$(PREFIX)/bin
 
 OBJS = crackle.o aes.o aes-ccm.o aes-enc.o test.o
 
-CFLAGS  ?= -Wall -Werror -g
-LDFLAGS ?= 
+CFLAGS  ?= -O2 -Wall -Werror -g
+LDFLAGS ?=
 
 all: crackle
 

@@ -348,8 +348,9 @@ static void packet_decrypter(crackle_state_t *state,
             // give up
             if (!state->test_decrypt)
                 printf("Warning: could not decrypt packet! Copying as is..\n");
-            else
+            else {
                 pcap_breakloop(state->cap);
+            }
 
             goto out;
         }
@@ -599,7 +600,6 @@ int main(int argc, char **argv) {
     char errbuf[PCAP_ERRBUF_SIZE];
     pcap_t *cap;
     crackle_state_t state;
-    crackle_state_t dup_state;
     int err_count = 0;
     uint8_t confirm_mrand[16] = { 0, };
     uint8_t confirm_srand[16] = { 0, };
@@ -804,7 +804,13 @@ int main(int argc, char **argv) {
     calc_iv(&state);
 
     if (do_stk_crack) {
+        // http://stackoverflow.com/a/9836422/2570866
+        int final_tk = 0;
+        #pragma omp parallel for shared(tk_found, final_tk)
         for (numeric_key = 0; numeric_key <= 999999; numeric_key++) {
+            crackle_state_t dup_state;
+            if (tk_found) continue;
+
             if (verbose && numeric_key % 1000 == 0) {
                 printf("Trying TK: %d\n", numeric_key);
             }
@@ -818,18 +824,18 @@ int main(int argc, char **argv) {
 
             dup_state.btle_handler = packet_decrypter;
 
-            cap = pcap_open_offline(pcap_file, errbuf);
-            dup_state.cap = cap;
+            dup_state.cap = pcap_open_offline(pcap_file, errbuf);
             if (cap == NULL)
                 errx(1, "%s", errbuf);
-            pcap_dispatch(cap, 0, packet_handler, (u_char *)&dup_state);
-            pcap_close(cap);
+            pcap_dispatch(dup_state.cap, 0, packet_handler, (u_char *)&dup_state);
+            pcap_close(dup_state.cap);
 
             if (dup_state.total_decrypted > 0) {
                 tk_found = 1;
-                break;
+                final_tk = numeric_key;
             }
         }
+        numeric_key = final_tk;
 
         if (!tk_found) {
             printf("TK not found, the connection is probably using OOB pairing\n");

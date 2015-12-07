@@ -260,7 +260,7 @@ static void packet_decrypter(crackle_state_t *state,
 
     aa = read_32(btle_bytes);
 
-    if (aa != state->aa)
+    if (state->connect_found && aa != state->aa)
         goto out;
 
     uint8_t flags = read_8(btle_bytes + 4);

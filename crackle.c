@@ -351,7 +351,7 @@ static void packet_decrypter(crackle_state_t *state,
             else
                 pcap_breakloop(state->cap);
 
-            goto out;
+            goto done;
         }
     }
     else {

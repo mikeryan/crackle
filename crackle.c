@@ -278,7 +278,7 @@ static void packet_decrypter(crackle_state_t *state,
         if (len > 0) {
             int r, i, j;
             uint8_t out[64];
-            uint8_t adata[16] = { flags & 0xf3, 0x00, };
+            uint8_t adata[16] = { flags & 0xe3, 0x00, };
             uint8_t nonce[16];
             const uint8_t *mic;
 

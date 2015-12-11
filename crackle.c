@@ -358,7 +358,7 @@ static void packet_decrypter(crackle_state_t *state,
         // LL Control PDU
         if ((flags & 3) == 3) {
             uint8_t opcode = read_8(btle_bytes + 6);
-            if (opcode == 0x4) // LL_ENC_RSP
+            if (opcode == 0x5) // LL_START_ENC_REQ
                 state->decryption_active = 1;
         }
     }

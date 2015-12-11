@@ -38,6 +38,8 @@
 #include "crackle.h"
 
 #define PFH_BTLE (30006)
+#define BLUETOOTH_LE_LL_WITH_PHDR 256
+#define PPI 192
 
 // CACE PPI headers
 typedef struct ppi_packetheader {
@@ -62,6 +64,17 @@ typedef struct ppi_btle {
     int8_t rssi_avg;
     uint8_t rssi_count;
 } __attribute__((packed)) ppi_btle_t;
+
+
+typedef struct __attribute__((packed)) _pcap_bluetooth_le_ll_header {
+    uint8_t rf_channel;
+    int8_t signal_power;
+    int8_t noise_power;
+    uint8_t access_address_offenses;
+    uint32_t ref_access_address;
+    uint16_t flags;
+    uint8_t le_packet[0];
+} pcap_bluetooth_le_ll_header;
 
 
 /* misc definitions */
@@ -373,9 +386,15 @@ out:
     if (crypted != NULL)
         free(crypted);
 }
+void packet_handler_ble_phdr(u_char *user, const struct pcap_pkthdr *h, const u_char *bytes) {
+    crackle_state_t *state;
+    state = (crackle_state_t *)user;
+    size_t header_len = sizeof(pcap_bluetooth_le_ll_header);
 
+    state->btle_handler(state, h, bytes, header_len, h->caplen);
+}
 
-void packet_handler(u_char *user, const struct pcap_pkthdr *h, const u_char *bytes) {
+void packet_handler_ppi(u_char *user, const struct pcap_pkthdr *h, const u_char *bytes) {
     crackle_state_t *state;
     size_t header_len;
     ppi_packet_header_t *ppih;
@@ -598,6 +617,7 @@ void usage(void) {
 int main(int argc, char **argv) {
     char errbuf[PCAP_ERRBUF_SIZE];
     pcap_t *cap;
+    pcap_handler packet_handler;
     crackle_state_t state;
     crackle_state_t dup_state;
     int err_count = 0;
@@ -709,6 +729,28 @@ int main(int argc, char **argv) {
     cap = pcap_open_offline(pcap_file, errbuf);
     if (cap == NULL)
         errx(1, "%s", errbuf);
+
+    int cap_dlt = pcap_datalink(cap);
+
+    if(verbose)
+        printf("PCAP contains [%s] frames\n", pcap_datalink_val_to_name(cap_dlt));
+
+    switch(cap_dlt)
+    {
+        case BLUETOOTH_LE_LL_WITH_PHDR:
+                packet_handler = packet_handler_ble_phdr;
+                break;
+        case PPI:
+                packet_handler = packet_handler_ppi;
+                break;
+        default:
+                printf("Frames inside PCAP file not supported ! dlt_name=%s\n", pcap_datalink_val_to_name(cap_dlt));
+                printf("Frames format supported:\n");
+                printf(" [%d] BLUETOOTH_LE_LL_WITH_PHDR\n", BLUETOOTH_LE_LL_WITH_PHDR);
+                printf(" [%d] PPI\n", PPI);
+                return 1;
+    }
+
     pcap_dispatch(cap, 0, packet_handler, (u_char *)&state);
     pcap_close(cap);
 

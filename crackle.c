@@ -611,7 +611,6 @@ int main(int argc, char **argv) {
     int opt;
     int verbose = 0, do_tests = 0;
     int do_tk_crack = 1, do_stk_crack = 0, do_ltk_decrypt = 0;
-    int do_reverse = 0;
     char *pcap_file = NULL;
     char *pcap_file_out = NULL;
     char *ltk = NULL;
@@ -644,10 +643,6 @@ int main(int argc, char **argv) {
                 do_tk_crack = 0;
                 do_ltk_decrypt = 1;
                 ltk = strdup(optarg);
-                break;
-
-            case 'r':
-                do_reverse = 1;
                 break;
 
             case 'h':
@@ -762,27 +757,14 @@ int main(int argc, char **argv) {
 
     if (do_tk_crack) {
         // brute force the TK, starting with 0 for Just Works
-        if (do_reverse) {
-            for (numeric_key = 999999; numeric_key >= 0; --numeric_key) {
-                calc_confirm(&state, 1, numeric_key, confirm_mrand);
-                calc_confirm(&state, 0, numeric_key, confirm_srand);
-                r1 = memcmp(state.mconfirm, confirm_mrand, 16);
-                r2 = memcmp(state.mconfirm, confirm_srand, 16);
-                if (r1 == 0 || r2 == 0) {
-                    tk_found = 1;
-                    break;
-                }
-            }
-        } else {
-            for (numeric_key = 0; numeric_key <= 999999; numeric_key++) {
-                calc_confirm(&state, 1, numeric_key, confirm_mrand);
-                calc_confirm(&state, 0, numeric_key, confirm_srand);
-                r1 = memcmp(state.mconfirm, confirm_mrand, 16);
-                r2 = memcmp(state.mconfirm, confirm_srand, 16);
-                if (r1 == 0 || r2 == 0) {
-                    tk_found = 1;
-                    break;
-                }
+        for (numeric_key = 0; numeric_key <= 999999; numeric_key++) {
+            calc_confirm(&state, 1, numeric_key, confirm_mrand);
+            calc_confirm(&state, 0, numeric_key, confirm_srand);
+            r1 = memcmp(state.mconfirm, confirm_mrand, 16);
+            r2 = memcmp(state.mconfirm, confirm_srand, 16);
+            if (r1 == 0 || r2 == 0) {
+                tk_found = 1;
+                break;
             }
         }
 

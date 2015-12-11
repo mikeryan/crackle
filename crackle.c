@@ -618,6 +618,7 @@ int main(int argc, char **argv) {
     char errbuf[PCAP_ERRBUF_SIZE];
     pcap_t *cap;
     pcap_handler packet_handler;
+    int cap_dlt;
     crackle_state_t state;
     crackle_state_t dup_state;
     int err_count = 0;
@@ -730,7 +731,7 @@ int main(int argc, char **argv) {
     if (cap == NULL)
         errx(1, "%s", errbuf);
 
-    int cap_dlt = pcap_datalink(cap);
+    cap_dlt = pcap_datalink(cap);
 
     if(verbose)
         printf("PCAP contains [%s] frames\n", pcap_datalink_val_to_name(cap_dlt));
@@ -884,7 +885,7 @@ int main(int argc, char **argv) {
         return 0;
     }
 
-    pcap_t *pcap_dumpfile = pcap_open_dead(DLT_PPI, 128);
+    pcap_t *pcap_dumpfile = pcap_open_dead(cap_dlt, 128);
     if (pcap_dumpfile == NULL)
         err(1, "pcap_open_dead: ");
     state.dumper = pcap_dump_open(pcap_dumpfile, pcap_file_out);

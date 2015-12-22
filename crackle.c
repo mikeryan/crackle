@@ -636,7 +636,6 @@ int main(int argc, char **argv) {
                 break;
 
             case 's':
-                do_tk_crack = 0;
                 do_stk_crack = 1;
                 break;
 
@@ -720,22 +719,35 @@ int main(int argc, char **argv) {
     // cool, now let's check if we have everything we need
     if (do_tk_crack) {
         if (!state.connect_found) {
-            printf("No connect packet found\n");
+            if (!do_stk_crack)
+                printf("No connect packet found\n");
             ++err_count;
         }
         if (!state.preq_found) {
-            printf("No pairing request found\n");
+            if (!do_stk_crack)
+                printf("No pairing request found\n");
             ++err_count;
         }
         if (!state.pres_found) {
-            printf("No pairing response found\n");
+            if (!do_stk_crack)
+                printf("No pairing response found\n");
             ++err_count;
         }
         if (!state.confirm_found) {
-            printf("No confirm values found, at least one is needed\n");
+            if (!do_stk_crack)
+                printf("No confirm values found, at least one is needed\n");
             ++err_count;
         }
     }
+
+    if (do_stk_crack && err_count) {
+        do_tk_crack = 0;
+        err_count = 0;
+    }
+    else {
+        do_stk_crack = 0;
+    }
+
     if (do_tk_crack || do_stk_crack) {
         if (state.random_found != 2) {
             printf("Not enough random values found (%d, need 2)\n", state.random_found);

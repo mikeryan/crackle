@@ -38,6 +38,8 @@
 #include "crackle.h"
 
 #define PFH_BTLE (30006)
+#define BLUETOOTH_LE_LL_WITH_PHDR 256
+#define PPI 192
 
 // CACE PPI headers
 typedef struct ppi_packetheader {
@@ -62,6 +64,17 @@ typedef struct ppi_btle {
     int8_t rssi_avg;
     uint8_t rssi_count;
 } __attribute__((packed)) ppi_btle_t;
+
+
+typedef struct __attribute__((packed)) _pcap_bluetooth_le_ll_header {
+    uint8_t rf_channel;
+    int8_t signal_power;
+    int8_t noise_power;
+    uint8_t access_address_offenses;
+    uint32_t ref_access_address;
+    uint16_t flags;
+    uint8_t le_packet[0];
+} pcap_bluetooth_le_ll_header;
 
 
 /* misc definitions */
@@ -278,7 +291,7 @@ static void packet_decrypter(crackle_state_t *state,
         if (len > 0) {
             int r, i, j;
             uint8_t out[64];
-            uint8_t adata[16] = { flags & 0xf3, 0x00, };
+            uint8_t adata[16] = { flags & 0xe3, 0x00, };
             uint8_t nonce[16];
             const uint8_t *mic;
 
@@ -359,7 +372,7 @@ static void packet_decrypter(crackle_state_t *state,
         // LL Control PDU
         if ((flags & 3) == 3) {
             uint8_t opcode = read_8(btle_bytes + 6);
-            if (opcode == 0x4) // LL_ENC_RSP
+            if (opcode == 0x5) // LL_START_ENC_REQ
                 state->decryption_active = 1;
         }
     }
@@ -374,9 +387,15 @@ out:
     if (crypted != NULL)
         free(crypted);
 }
+void packet_handler_ble_phdr(u_char *user, const struct pcap_pkthdr *h, const u_char *bytes) {
+    crackle_state_t *state;
+    state = (crackle_state_t *)user;
+    size_t header_len = sizeof(pcap_bluetooth_le_ll_header);
 
+    state->btle_handler(state, h, bytes, header_len, h->caplen);
+}
 
-void packet_handler(u_char *user, const struct pcap_pkthdr *h, const u_char *bytes) {
+void packet_handler_ppi(u_char *user, const struct pcap_pkthdr *h, const u_char *bytes) {
     crackle_state_t *state;
     size_t header_len;
     ppi_packet_header_t *ppih;
@@ -599,6 +618,8 @@ void usage(void) {
 int main(int argc, char **argv) {
     char errbuf[PCAP_ERRBUF_SIZE];
     pcap_t *cap;
+    pcap_handler packet_handler;
+    int cap_dlt;
     crackle_state_t state;
     int err_count = 0;
     uint8_t confirm_mrand[16] = { 0, };
@@ -611,7 +632,6 @@ int main(int argc, char **argv) {
     int opt;
     int verbose = 0, do_tests = 0;
     int do_tk_crack = 1, do_stk_crack = 0, do_ltk_decrypt = 0;
-    int do_reverse = 0;
     char *pcap_file = NULL;
     char *pcap_file_out = NULL;
     char *ltk = NULL;
@@ -643,10 +663,6 @@ int main(int argc, char **argv) {
                 do_tk_crack = 0;
                 do_ltk_decrypt = 1;
                 ltk = strdup(optarg);
-                break;
-
-            case 'r':
-                do_reverse = 1;
                 break;
 
             case 'h':
@@ -713,6 +729,28 @@ int main(int argc, char **argv) {
     cap = pcap_open_offline(pcap_file, errbuf);
     if (cap == NULL)
         errx(1, "%s", errbuf);
+
+    cap_dlt = pcap_datalink(cap);
+
+    if(verbose)
+        printf("PCAP contains [%s] frames\n", pcap_datalink_val_to_name(cap_dlt));
+
+    switch(cap_dlt)
+    {
+        case BLUETOOTH_LE_LL_WITH_PHDR:
+                packet_handler = packet_handler_ble_phdr;
+                break;
+        case PPI:
+                packet_handler = packet_handler_ppi;
+                break;
+        default:
+                printf("Frames inside PCAP file not supported ! dlt_name=%s\n", pcap_datalink_val_to_name(cap_dlt));
+                printf("Frames format supported:\n");
+                printf(" [%d] BLUETOOTH_LE_LL_WITH_PHDR\n", BLUETOOTH_LE_LL_WITH_PHDR);
+                printf(" [%d] PPI\n", PPI);
+                return 1;
+    }
+
     pcap_dispatch(cap, 0, packet_handler, (u_char *)&state);
     pcap_close(cap);
 
@@ -774,27 +812,14 @@ int main(int argc, char **argv) {
 
     if (do_tk_crack) {
         // brute force the TK, starting with 0 for Just Works
-        if (do_reverse) {
-            for (numeric_key = 999999; numeric_key >= 0; --numeric_key) {
-                calc_confirm(&state, 1, numeric_key, confirm_mrand);
-                calc_confirm(&state, 0, numeric_key, confirm_srand);
-                r1 = memcmp(state.mconfirm, confirm_mrand, 16);
-                r2 = memcmp(state.mconfirm, confirm_srand, 16);
-                if (r1 == 0 || r2 == 0) {
-                    tk_found = 1;
-                    break;
-                }
-            }
-        } else {
-            for (numeric_key = 0; numeric_key <= 999999; numeric_key++) {
-                calc_confirm(&state, 1, numeric_key, confirm_mrand);
-                calc_confirm(&state, 0, numeric_key, confirm_srand);
-                r1 = memcmp(state.mconfirm, confirm_mrand, 16);
-                r2 = memcmp(state.mconfirm, confirm_srand, 16);
-                if (r1 == 0 || r2 == 0) {
-                    tk_found = 1;
-                    break;
-                }
+        for (numeric_key = 0; numeric_key <= 999999; numeric_key++) {
+            calc_confirm(&state, 1, numeric_key, confirm_mrand);
+            calc_confirm(&state, 0, numeric_key, confirm_srand);
+            r1 = memcmp(state.mconfirm, confirm_mrand, 16);
+            r2 = memcmp(state.mconfirm, confirm_srand, 16);
+            if (r1 == 0 || r2 == 0) {
+                tk_found = 1;
+                break;
             }
         }
 
@@ -878,7 +903,7 @@ int main(int argc, char **argv) {
         return 0;
     }
 
-    pcap_t *pcap_dumpfile = pcap_open_dead(DLT_PPI, 128);
+    pcap_t *pcap_dumpfile = pcap_open_dead(cap_dlt, 128);
     if (pcap_dumpfile == NULL)
         err(1, "pcap_open_dead: ");
     state.dumper = pcap_dump_open(pcap_dumpfile, pcap_file_out);

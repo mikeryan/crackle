@@ -37,8 +37,14 @@ Crack TK
 
 In Crack TK mode, crackle brute forces the TK used during a BLE pairing
 event. crackle exploits the fact that the TK in Just Works(tm) and
-6-digit PIN is a value in the range [0,999999] padded to 128 bits. The
-brute force process takes less than one second on modern CPUs.
+6-digit PIN is a value in the range [0,999999] padded to 128 bits. If
+the required pairing frames are present, the brute force process takes
+less than one second on modern CPUs. The method employed is to compute
+all possible confirm values and to compare them with the existing ones
+of the pairing exchange. Otherwise, with the -s option, it fallbacks on
+another technique that requires less information but takes much more
+time. It simply generates every possible STK/sessionKey and tries to
+decrypt encrypted datas flow.
 
 After the TK has been cracked, crackle goes on to derive the remaining
 keys used to encrypt further communication and uses these to decrypt the

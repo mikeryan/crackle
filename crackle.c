@@ -66,7 +66,7 @@ typedef struct ppi_btle {
 } __attribute__((packed)) ppi_btle_t;
 
 
-typedef struct __attribute__((packed)) _pcap_bluetooth_le_ll_header {
+typedef struct _pcap_bluetooth_le_ll_header {
     uint8_t rf_channel;
     int8_t signal_power;
     int8_t noise_power;
@@ -74,7 +74,7 @@ typedef struct __attribute__((packed)) _pcap_bluetooth_le_ll_header {
     uint32_t ref_access_address;
     uint16_t flags;
     uint8_t le_packet[0];
-} pcap_bluetooth_le_ll_header;
+} __attribute__((packed)) pcap_bluetooth_le_ll_header;
 
 
 /* misc definitions */
@@ -582,23 +582,27 @@ void dump_state(crackle_state_t *state) {
 }
 
 void usage(void) {
-    printf("Usage: crackle -i <input.pcap> [-o <output.pcap>] [-l <ltk>]\n");
+    printf("Usage: crackle -i <input.pcap> [-o <output.pcap>] [-l <ltk>] [-s]\n");
     printf("Cracks Bluetooth Low Energy encryption (AKA Bluetooth Smart)\n");
     printf("\n");
     printf("Major modes:  Crack TK // Decrypt with LTK\n");
     printf("\n");
     printf("Crack TK:\n");
     printf("\n");
-    printf("    Input PCAP file must contain a complete pairing conversation. If any\n");
-    printf("    packet is missing, cracking will not proceed. The PCAP file will be\n");
+    printf("    Input PCAP file must contain a complete pairing conversation. If\n");
+    printf("    any packet is missing, cracking will not proceed unless you specify\n");
+    printf("    the -s option. If so, it will use second technique that require\n");
+    printf("    less packets (at least the two Pairing Random and LL_ENC_REQ and\n");
+    printf("    LL_ENC_RSP) but it will take much more time (consider installing\n");
+    printf("    OpenMP library as crackle is OpenMP ready). The PCAP file will be\n");
     printf("    decrypted if -o <output.pcap> is specified. If LTK exchange is in\n");
     printf("    the PCAP file, the LTK will be dumped to stdout.\n");
     printf("    \n");
     printf("Decrypt with LTK:\n");
     printf("\n");
     printf("    Input PCAP file must contain at least LL_ENC_REQ and LL_ENC_RSP\n");
-    printf("    (which contain the SKD and IV). The PCAP file will be decrypted if\n");
-    printf("    the LTK is correct.\n");
+    printf("    (which contain the SKD and IV). The PCAP file will be decrypted\n");
+    printf("    if the LTK is correct.\n");
     printf("\n");
     printf("    LTK format: string of hex bytes, no separator, most-significant\n");
     printf("    octet to least-significant octet.\n");
@@ -637,7 +641,7 @@ int main(int argc, char **argv) {
     char *ltk = NULL;
     uint8_t ltk_bytes[16];
 
-    while ((opt = getopt(argc, argv, "i:o:svthl:r")) != -1) {
+    while ((opt = getopt(argc, argv, "i:o:svthl")) != -1) {
         switch (opt) {
             case 'i':
                 pcap_file = strdup(optarg);
@@ -810,6 +814,10 @@ int main(int argc, char **argv) {
     if (verbose)
         dump_state(&state);
 
+    calc_iv(&state);
+
+    // crack TK by comparing the Confirm Pairing retrieved values with the confirm values
+    // computed with the confirm value generation function c1 (page 1962, BT 4.0 spec)
     if (do_tk_crack) {
         // brute force the TK, starting with 0 for Just Works
         for (numeric_key = 0; numeric_key <= 999999; numeric_key++) {
@@ -822,25 +830,10 @@ int main(int argc, char **argv) {
                 break;
             }
         }
-
-        if (!tk_found) {
-            printf("TK not found, the connection is probably using OOB pairing\n");
-            printf("Sorry d00d :(\n");
-            return 1;
-        }
-
-        printf("\n\n!!!\n");
-        printf("TK found: %06d\n", numeric_key);
-        if (numeric_key == 0)
-            printf("ding ding ding, using a TK of 0! Just Cracks(tm)\n");
-        printf("!!!\n\n");
-
-        calc_stk(&state, numeric_key);
     }
-
-    calc_iv(&state);
-
-    if (do_stk_crack) {
+    // crack TK by generating and testing every possible STK keys using the key generation
+    // function s1 (page 1962, BT 4.0 spec)
+    else if (do_stk_crack) {
         // http://stackoverflow.com/a/9836422/2570866
         int final_tk = 0;
         #pragma omp parallel for shared(tk_found, final_tk)
@@ -873,22 +866,22 @@ int main(int argc, char **argv) {
             }
         }
         numeric_key = final_tk;
-
-        if (!tk_found) {
-            printf("TK not found, the connection is probably using OOB pairing\n");
-            printf("Sorry d00d :(\n");
-            return 1;
-        }
-
-        printf("\n\n!!!\n");
-        printf("TK found: %06d\n", numeric_key);
-        if (numeric_key == 0)
-            printf("ding ding ding, using a TK of 0! Just Cracks(tm)\n");
-        printf("!!!\n\n");
-
-        calc_stk(&state, numeric_key);
+    }
+    
+    if (!tk_found) {
+        printf("TK not found, the connection is probably using OOB pairing\n");
+        printf("Sorry d00d :(\n");
+        return 1;
     }
 
+    printf("\n\n!!!\n");
+    printf("TK found: %06d\n", numeric_key);
+    if (numeric_key == 0)
+        printf("ding ding ding, using a TK of 0! Just Cracks(tm)\n");
+    printf("!!!\n\n");
+
+    calc_stk(&state, numeric_key);
+    
     // at this point we either have the STK from TK cracking or LTK from
     // command line args
     calc_session_key(&state);

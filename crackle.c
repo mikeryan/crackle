@@ -273,7 +273,7 @@ static void packet_decrypter(crackle_state_t *state,
 
     aa = read_32(btle_bytes);
 
-    if (aa != state->aa)
+    if (state->connect_found && aa != state->aa)
         goto out;
 
     uint8_t flags = read_8(btle_bytes + 4);
@@ -361,8 +361,9 @@ static void packet_decrypter(crackle_state_t *state,
             // give up
             if (!state->test_decrypt)
                 printf("Warning: could not decrypt packet! Copying as is..\n");
-            else
+            else {
                 pcap_breakloop(state->cap);
+            }
 
             goto done;
         }
@@ -620,7 +621,6 @@ int main(int argc, char **argv) {
     pcap_handler packet_handler;
     int cap_dlt;
     crackle_state_t state;
-    crackle_state_t dup_state;
     int err_count = 0;
     uint8_t confirm_mrand[16] = { 0, };
     uint8_t confirm_srand[16] = { 0, };
@@ -656,7 +656,6 @@ int main(int argc, char **argv) {
                 break;
 
             case 's':
-                do_tk_crack = 0;
                 do_stk_crack = 1;
                 break;
 
@@ -758,22 +757,35 @@ int main(int argc, char **argv) {
     // cool, now let's check if we have everything we need
     if (do_tk_crack) {
         if (!state.connect_found) {
-            printf("No connect packet found\n");
+            if (!do_stk_crack)
+                printf("No connect packet found\n");
             ++err_count;
         }
         if (!state.preq_found) {
-            printf("No pairing request found\n");
+            if (!do_stk_crack)
+                printf("No pairing request found\n");
             ++err_count;
         }
         if (!state.pres_found) {
-            printf("No pairing response found\n");
+            if (!do_stk_crack)
+                printf("No pairing response found\n");
             ++err_count;
         }
         if (!state.confirm_found) {
-            printf("No confirm values found, at least one is needed\n");
+            if (!do_stk_crack)
+                printf("No confirm values found, at least one is needed\n");
             ++err_count;
         }
     }
+
+    if (do_stk_crack && err_count) {
+        do_tk_crack = 0;
+        err_count = 0;
+    }
+    else {
+        do_stk_crack = 0;
+    }
+
     if (do_tk_crack || do_stk_crack) {
         if (state.random_found != 2) {
             printf("Not enough random values found (%d, need 2)\n", state.random_found);
@@ -829,7 +841,13 @@ int main(int argc, char **argv) {
     calc_iv(&state);
 
     if (do_stk_crack) {
+        // http://stackoverflow.com/a/9836422/2570866
+        int final_tk = 0;
+        #pragma omp parallel for shared(tk_found, final_tk)
         for (numeric_key = 0; numeric_key <= 999999; numeric_key++) {
+            crackle_state_t dup_state;
+            if (tk_found) continue;
+
             if (verbose && numeric_key % 1000 == 0) {
                 printf("Trying TK: %d\n", numeric_key);
             }
@@ -843,18 +861,18 @@ int main(int argc, char **argv) {
 
             dup_state.btle_handler = packet_decrypter;
 
-            cap = pcap_open_offline(pcap_file, errbuf);
-            dup_state.cap = cap;
+            dup_state.cap = pcap_open_offline(pcap_file, errbuf);
             if (cap == NULL)
                 errx(1, "%s", errbuf);
-            pcap_dispatch(cap, 0, packet_handler, (u_char *)&dup_state);
-            pcap_close(cap);
+            pcap_dispatch(dup_state.cap, 0, packet_handler, (u_char *)&dup_state);
+            pcap_close(dup_state.cap);
 
             if (dup_state.total_decrypted > 0) {
                 tk_found = 1;
-                break;
+                final_tk = numeric_key;
             }
         }
+        numeric_key = final_tk;
 
         if (!tk_found) {
             printf("TK not found, the connection is probably using OOB pairing\n");

@@ -6,7 +6,7 @@ INSTALL_DIR ?= $(DESTDIR)/$(PREFIX)/bin
 
 OBJS = crackle.o aes.o aes-ccm.o aes-enc.o test.o
 
-CFLAGS  ?= -O2 -Wall -Werror -g
+CFLAGS  ?= -O2 -Wall -Werror -g -Wno-unknown-pragmas -fopenmp
 LDFLAGS ?=
 
 all: crackle

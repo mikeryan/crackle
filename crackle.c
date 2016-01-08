@@ -637,7 +637,7 @@ int main(int argc, char **argv) {
     char *ltk = NULL;
     uint8_t ltk_bytes[16];
 
-    while ((opt = getopt(argc, argv, "i:o:svthl:r")) != -1) {
+    while ((opt = getopt(argc, argv, "i:o:svthl")) != -1) {
         switch (opt) {
             case 'i':
                 pcap_file = strdup(optarg);

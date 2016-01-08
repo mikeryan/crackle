@@ -66,7 +66,7 @@ typedef struct ppi_btle {
 } __attribute__((packed)) ppi_btle_t;
 
 
-typedef struct __attribute__((packed)) _pcap_bluetooth_le_ll_header {
+typedef struct _pcap_bluetooth_le_ll_header {
     uint8_t rf_channel;
     int8_t signal_power;
     int8_t noise_power;
@@ -74,7 +74,7 @@ typedef struct __attribute__((packed)) _pcap_bluetooth_le_ll_header {
     uint32_t ref_access_address;
     uint16_t flags;
     uint8_t le_packet[0];
-} pcap_bluetooth_le_ll_header;
+} __attribute__((packed)) pcap_bluetooth_le_ll_header;
 
 
 /* misc definitions */
@@ -814,6 +814,10 @@ int main(int argc, char **argv) {
     if (verbose)
         dump_state(&state);
 
+    calc_iv(&state);
+
+    // crack TK by comparing the Confirm Pairing retrieved values with the confirm values
+    // computed with the confirm value generation function c1 (page 1962, BT 4.0 spec)
     if (do_tk_crack) {
         // brute force the TK, starting with 0 for Just Works
         for (numeric_key = 0; numeric_key <= 999999; numeric_key++) {
@@ -826,25 +830,10 @@ int main(int argc, char **argv) {
                 break;
             }
         }
-
-        if (!tk_found) {
-            printf("TK not found, the connection is probably using OOB pairing\n");
-            printf("Sorry d00d :(\n");
-            return 1;
-        }
-
-        printf("\n\n!!!\n");
-        printf("TK found: %06d\n", numeric_key);
-        if (numeric_key == 0)
-            printf("ding ding ding, using a TK of 0! Just Cracks(tm)\n");
-        printf("!!!\n\n");
-
-        calc_stk(&state, numeric_key);
     }
-
-    calc_iv(&state);
-
-    if (do_stk_crack) {
+    // crack TK by generating and testing every possible STK keys using the key generation
+    // function s1 (page 1962, BT 4.0 spec)
+    else if (do_stk_crack) {
         // http://stackoverflow.com/a/9836422/2570866
         int final_tk = 0;
         #pragma omp parallel for shared(tk_found, final_tk)
@@ -877,22 +866,22 @@ int main(int argc, char **argv) {
             }
         }
         numeric_key = final_tk;
-
-        if (!tk_found) {
-            printf("TK not found, the connection is probably using OOB pairing\n");
-            printf("Sorry d00d :(\n");
-            return 1;
-        }
-
-        printf("\n\n!!!\n");
-        printf("TK found: %06d\n", numeric_key);
-        if (numeric_key == 0)
-            printf("ding ding ding, using a TK of 0! Just Cracks(tm)\n");
-        printf("!!!\n\n");
-
-        calc_stk(&state, numeric_key);
+    }
+    
+    if (!tk_found) {
+        printf("TK not found, the connection is probably using OOB pairing\n");
+        printf("Sorry d00d :(\n");
+        return 1;
     }
 
+    printf("\n\n!!!\n");
+    printf("TK found: %06d\n", numeric_key);
+    if (numeric_key == 0)
+        printf("ding ding ding, using a TK of 0! Just Cracks(tm)\n");
+    printf("!!!\n\n");
+
+    calc_stk(&state, numeric_key);
+    
     // at this point we either have the STK from TK cracking or LTK from
     // command line args
     calc_session_key(&state);

@@ -582,23 +582,27 @@ void dump_state(crackle_state_t *state) {
 }
 
 void usage(void) {
-    printf("Usage: crackle -i <input.pcap> [-o <output.pcap>] [-l <ltk>]\n");
+    printf("Usage: crackle -i <input.pcap> [-o <output.pcap>] [-l <ltk>] [-s]\n");
     printf("Cracks Bluetooth Low Energy encryption (AKA Bluetooth Smart)\n");
     printf("\n");
     printf("Major modes:  Crack TK // Decrypt with LTK\n");
     printf("\n");
     printf("Crack TK:\n");
     printf("\n");
-    printf("    Input PCAP file must contain a complete pairing conversation. If any\n");
-    printf("    packet is missing, cracking will not proceed. The PCAP file will be\n");
+    printf("    Input PCAP file must contain a complete pairing conversation. If\n");
+    printf("    any packet is missing, cracking will not proceed unless you specify\n");
+    printf("    the -s option. If so, it will use second technique that require\n");
+    printf("    less packets (at least the two Pairing Random and LL_ENC_REQ and\n");
+    printf("    LL_ENC_RSP) but it will take much more time (consider installing\n");
+    printf("    OpenMP library as crackle is OpenMP ready). The PCAP file will be\n");
     printf("    decrypted if -o <output.pcap> is specified. If LTK exchange is in\n");
     printf("    the PCAP file, the LTK will be dumped to stdout.\n");
     printf("    \n");
     printf("Decrypt with LTK:\n");
     printf("\n");
     printf("    Input PCAP file must contain at least LL_ENC_REQ and LL_ENC_RSP\n");
-    printf("    (which contain the SKD and IV). The PCAP file will be decrypted if\n");
-    printf("    the LTK is correct.\n");
+    printf("    (which contain the SKD and IV). The PCAP file will be decrypted\n");
+    printf("    if the LTK is correct.\n");
     printf("\n");
     printf("    LTK format: string of hex bytes, no separator, most-significant\n");
     printf("    octet to least-significant octet.\n");

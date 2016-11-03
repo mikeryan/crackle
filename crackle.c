@@ -129,17 +129,31 @@ static void enc_data_extractor(crackle_state_t *state,
     uint32_t aa;
 
     assert(state != NULL);
+    assert(offset < len);
 
     bytes += offset;
     len -= offset;
+
+    // short packet, must have at least AA + flags + ll len
+    if (len < 6)
+        return;
 
     aa = read_32(bytes);
 
     if (aa == adv_aa) {
         uint8_t flags = read_8(bytes + 4);
+        uint16_t lllen = read_8(bytes + 5) & 0x3f;
+
+        // ensure capture is at least as large as LL len + AA + header + CRC
+        if (len < lllen + 6 + 3)
+            return;
 
         // connect packet, grab those addresses!
         if ((flags & 0xf) == 5) {
+            // another short packet
+            if (lllen != 34)
+                return;
+
             if (state->connect_found)
                 printf("Warning: found multiple connects, only using the latest one\n");
             state->connect_found = 1;
@@ -155,13 +169,31 @@ static void enc_data_extractor(crackle_state_t *state,
     // data packet
     else {
         uint8_t flags = read_8(bytes + 4);
+        uint8_t lllen = read_8(bytes + 5);
+
+        // ensure capture is at least as large as LL len + AA + header + CRC
+        if (len < lllen + 6 + 3)
+            return;
+
         if ((flags & 0x3) == 2) {
-            uint16_t l2len = read_16(bytes + 6);
-            uint16_t cid = read_16(bytes + 8);
+            uint16_t l2len;
+            uint16_t cid;
+
+            // must be at least long enough for L2CAP header
+            if (lllen < 4)
+                return;
+
+            l2len = read_16(bytes + 6);
+            cid = read_16(bytes + 8);
 
             // Bluetooth Security Manager
             if (cid == 6) {
-                uint8_t command = read_8(bytes + 10);
+                uint8_t command;
+
+                if (len < 11)
+                    return;
+
+                command = read_8(bytes + 10);
 
                 // pairing request, copy it
                 if (command == 0x1) {
@@ -221,15 +253,19 @@ static void enc_data_extractor(crackle_state_t *state,
 
         // LL Control PDU
         else if ((flags & 3) == 3) {
-            uint8_t len = read_8(bytes + 5);
-            uint8_t opcode = read_8(bytes + 6);
+            uint8_t opcode;
+
+            if (len < 7)
+                return;
+
+            opcode = read_8(bytes + 6);
 
             // LL_ENC_REQ
             if (opcode == 0x3) {
                 if (state->enc_req_found)
                     printf("Warning: found multiple LL_ENC_REQ, only using latest one\n");
-                if (len != 23) {
-                    printf("Warning: LL_ENC_REQ is wrong length (%u), skipping\n", len);
+                if (lllen != 23) {
+                    printf("Warning: LL_ENC_REQ is wrong length (%u), skipping\n", lllen);
                     return;
                 }
                 copy_reverse(bytes +  7, state->rand, 8);
@@ -243,8 +279,8 @@ static void enc_data_extractor(crackle_state_t *state,
             else if (opcode == 0x4) {
                 if (state->enc_rsp_found)
                     printf("Warning: found multiple LL_ENC_RSP, only using latest one\n");
-                if (len != 13) {
-                    printf("Warning: LL_ENC_RSP is wrong length (%u), skipping\n", len);
+                if (lllen != 13) {
+                    printf("Warning: LL_ENC_RSP is wrong length (%u), skipping\n", lllen);
                     return;
                 }
                 copy_reverse(bytes +  7, state->skds, 8);

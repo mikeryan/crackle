@@ -582,6 +582,8 @@ void dump_state(crackle_state_t *state) {
         printf("  random_found: %d\n", conn->random_found);
         printf("  enc_req_found: %d\n", conn->enc_req_found);
         printf("  enc_rsp_found: %d\n", conn->enc_rsp_found);
+        printf("  pairing_public_key_found: %d\n", conn->pairing_public_key_found);
+        printf("  pairing_dhkey_check_found: %d\n", conn->pairing_dhkey_check_found);
 
         if (conn->connect_found) {
             printf("  AA: %08x\n", conn->aa);
@@ -1332,6 +1334,9 @@ int main(int argc, char **argv) {
     }
 
     printf("Done, processed %d total packets, decrypted %d\n", state.total_processed, state.total_decrypted);
+
+    if (state.verbose)
+        dump_state(&state);
 
 out:
     free_state(&state);

@@ -35,6 +35,10 @@ struct _connection_state_t {
     int enc_rsp_found;
     int start_enc_req_found;
 
+    // LE Secure Connections
+    int pairing_public_key_found;
+    int pairing_dhkey_check_found;
+
     // field from connect packet
     uint32_t aa;
     uint8_t ia[6], ra[6];

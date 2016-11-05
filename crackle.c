@@ -305,6 +305,19 @@ static void enc_data_extractor(crackle_state_t *crackle_state,
                         copy_reverse(bytes + 11, dest, 16);
                         ++state->random_found;
                     }
+
+                    // pairing public key -- LE Secure Connections
+                    else if (command == 0xc) {
+                        state->pairing_public_key_found = 1;
+                        // TODO - maybe in future, copy this out and check for
+                        // use of debug key
+                        // (refer to 4.2 Vol 3 Part H Sec 2.3.5.6.1)
+                    }
+
+                    // pairing DHkey check -- LE Secure Connections
+                    else if (command == 0xd) {
+                        state->pairing_dhkey_check_found = 1;
+                    }
                 }
             }
 
@@ -687,6 +700,13 @@ int analyze_connection(connection_state_t *state, int *bits,
         char **errors, int *num_errors) {
     *num_errors = 0;
 
+    // pre-check for LE Secure Connections
+    if (state->pairing_public_key_found ||
+            state->pairing_dhkey_check_found) {
+        errors[(*num_errors)++] = "LE Secure Connections";
+        return -1;
+    }
+
     // absolutely required:
     //  CONNECT_REQ
     //  Mrand and Srand
@@ -840,8 +860,8 @@ void do_crack(crackle_state_t *state) {
 
             state->total_decrypted += conn->decrypted_packets;
         } else {
-            printf("    TK is not found. The connection could be using OOB pairing or LE\n");
-            printf("    Secure Connections. File a bug with more info about the devices.\n");
+            printf("    TK is not found. The connection could be using OOB pairing or something\n");
+            printf("    else fishy is going on. File a bug with more info about the devices.\n");
             printf("    Sorry d00d :(\n");
         }
     }

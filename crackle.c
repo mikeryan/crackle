@@ -150,7 +150,6 @@ static void add_encrypted_packet(connection_state_t *conn, unsigned pcap_idx,
     packet->enc_data = malloc(data_len);
     memcpy(packet->enc_data, data, data_len);
     packet->enc_data_len = data_len;
-    packet->dec_data = NULL; // quiets valgrind
 }
 
 /*
@@ -643,7 +642,6 @@ connection_state_t *new_connection_state(crackle_state_t *state) {
             state->conn = realloc(state->conn,
                     sizeof(connection_state_t) * state->total_conn);
 
-            // TODO verify this zeros the correct area
             memset(&state->conn[state->current_conn], 0,
                     sizeof(connection_state_t) *
                       (state->total_conn - state->current_conn));

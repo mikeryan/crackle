@@ -5,7 +5,7 @@
 #include "crackle.h"
 
 void test_encrypt_sample_data(void) {
-    crackle_state_t state;
+    connection_state_t state;
     memset(&state, 0, sizeof(state));
 
     uint8_t nonce[13] = { 0x00, };
@@ -82,7 +82,7 @@ void test_decrypt_sample_data(void) {
 }
 
 void test_calc_session_key(void) {
-    crackle_state_t state;
+    connection_state_t state;
     memset(&state, 0, sizeof(state));
 
     uint8_t ltk[16] = { 0x4C, 0x68, 0x38, 0x41, 0x39, 0xF5, 0x74, 0xD8, 0x36, 0xBC, 0xF3, 0x4E, 0x9D, 0xFB, 0x01, 0xBF , };
@@ -99,7 +99,7 @@ void test_calc_session_key(void) {
 }
 
 void test_calc_stk(void) {
-    crackle_state_t state;
+    connection_state_t state;
     memset(&state, 0, sizeof(state));
 
     uint8_t mrand[16] = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x00, };

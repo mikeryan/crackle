@@ -5,6 +5,8 @@
 #include <pcap.h>
 
 typedef struct _crackle_state_t crackle_state_t;
+typedef struct _connection_state_t connection_state_t;
+typedef struct _encrypted_packet_t encrypted_packet_t;
 
 // packet handler (called after a packet is sanity checked)
 typedef void (*btle_handler_t)(crackle_state_t *state,
@@ -13,7 +15,17 @@ typedef void (*btle_handler_t)(crackle_state_t *state,
                                off_t offset,
                                size_t len);
 
-struct _crackle_state_t {
+struct _encrypted_packet_t {
+    unsigned pcap_idx;
+
+    uint8_t flags;
+    uint8_t *enc_data;
+    size_t enc_data_len;
+    uint8_t *dec_data;
+    size_t dec_data_len;
+};
+
+struct _connection_state_t {
     int connect_found;
     int preq_found;
     int pres_found;
@@ -21,8 +33,7 @@ struct _crackle_state_t {
     int random_found;
     int enc_req_found;
     int enc_rsp_found;
-
-    btle_handler_t btle_handler;
+    int start_enc_req_found;
 
     // field from connect packet
     uint32_t aa;
@@ -50,18 +61,39 @@ struct _crackle_state_t {
     uint8_t session_key[16];
     uint8_t iv[8];
 
+    // post-decryption
+    int ltk_found;
+    uint8_t ltk[16];
+
+    // all likely encrypted packets extracted from PCAP
+    encrypted_packet_t *packets;
+    unsigned num_packets;
+    size_t packets_size;
+    unsigned decrypted_packets;
+};
+
+struct _crackle_state_t {
+    btle_handler_t btle_handler;
+
+    unsigned pcap_idx;
+
+    int verbose;
+
     /* decryption */
-    int decryption_active;
     pcap_dumper_t *dumper;
     int total_processed;
     int total_decrypted;
-    pcap_t *cap;
-    int test_decrypt;
 
-    uint64_t packet_counter[2]; // 0: master, 1: slave
+    // list of all succesfully decrypted packets + index into list
+    encrypted_packet_t *all_decrypted;
+    unsigned dec_idx;
+
+    connection_state_t *conn;
+    unsigned current_conn;
+    unsigned total_conn;
 };
 
-void calc_stk(crackle_state_t *state, uint32_t numeric_key);
-void calc_session_key(crackle_state_t *state);
+void calc_stk(connection_state_t *state, uint32_t numeric_key);
+void calc_session_key(connection_state_t *state);
 
 #endif /* __CRACKLE_H__ */

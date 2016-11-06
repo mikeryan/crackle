@@ -1024,7 +1024,7 @@ void decrypt(connection_state_t *state) {
                             packet->dec_data[2] == 6 && // security manager
                             packet->dec_data[4] == 6) { // encryption info
                         state->ltk_found = 1;
-                        memcpy(state->ltk, &packet->dec_data[5], 16);
+                        copy_reverse(&packet->dec_data[5], state->ltk, 16);
                     }
                 }
             }

@@ -121,9 +121,15 @@ Crackle is complaining about missing packets, why can't I crack?
 
 Crackle employs several strategies for cracking the LE Legacy Pairing
 key exchange, and they all rely on a certain number of packets being
-present in the PCAP or PcapNG file.
+present in the PCAP or PcapNG file. Two major challenges make satisfying
+this requirement difficult.
 
-First, Crackle must observe the key exchange when it occurs. If two
+First, Ubertooth does not capture 100% of packets. Ubertooth will not
+capture 100% of connections due to the nature of BLE, and even when it
+does capture a connection, it will not capture 100% of the packets sent
+over the air.
+
+Second, Crackle must observe the key exchange when it occurs. If two
 devices have previously paired and are re-establishing a connection,
 they will reuse a previously exchanged LTK to secure that connection and
 will not perform a key exchange. Crackle cannot be used in this scenario

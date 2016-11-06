@@ -684,7 +684,9 @@ void free_state(crackle_state_t *state) {
 
     free(state->conn);
 
-    pcap_dump_close(state->dumper);
+    // apparently pcap_dump_close isn't smart enough to deal with NULL
+    if (state->dumper != NULL)
+        pcap_dump_close(state->dumper);
 }
 
 // analyzes if a connection can be cracked and returns strategy

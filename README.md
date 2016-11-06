@@ -144,8 +144,8 @@ crackle with -i and -l:
 
     crackle -i <file.pcap> -l <ltk>
 
-If you both of the required packets, the program should produce output
-similar to this:
+If you have both of the required packets, the program should produce
+output similar to this:
 
     Analyzing connection 0:
       xx:xx:xx:xx:xx:xx (public) -> yy:yy:yy:yy:yy:yy (public)

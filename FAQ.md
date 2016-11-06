@@ -130,7 +130,7 @@ does capture a connection, it will not capture 100% of the packets sent
 over the air.
 
 Second, Crackle must observe the key exchange when it occurs. If two
-devices have previously paired and are re-establishing a connection,
+devices have previously paired and are re-establishing encryption,
 they will reuse a previously exchanged LTK to secure that connection and
 will not perform a key exchange. Crackle cannot be used in this scenario
 unless the LTK is already known (for example, by having sniffed and

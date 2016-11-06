@@ -1048,12 +1048,23 @@ void ltk_decrypt(crackle_state_t *state, uint8_t *ltk_bytes) {
 
         conn = &state->conn[i];
         printf("\nAnalyzing connection %d:\n", i);
+        if (conn->connect_found) {
+            printf("  ");
+            print_48(conn->ia);
+            printf(" (%s) -> ", conn->iat == 0 ? "public" : "private");
+            print_48(conn->ra);
+            printf(" (%s)\n", conn->rat == 0 ? "public" : "private");
+        }
 
         if (!conn->enc_req_found)
         errors[num_errors++] = "Missing LL_ENC_REQ";
 
         if (!conn->enc_rsp_found)
         errors[num_errors++] = "Missing LL_ENC_RSP";
+
+        // the code flows weird, but this matches the TK crack output
+        printf("  Found %d encrypted packet%s\n", conn->num_packets,
+                conn->num_packets == 1 ? "" : "s");
 
         if (num_errors > 0) {
             printf("  Unable to decrypt due to the following error%s:\n",

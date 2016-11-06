@@ -10,6 +10,9 @@ With the TK and other data collected from the pairing process, the STK
 With the STK and LTK, all communications between the master and the
 slave can be decrypted.
 
+Before attempting to use crackle, review the [FAQ](FAQ.md) to determine
+whether it is the appropriate tool to use in your situation.
+
 crackle was written by Mike Ryan <mikeryan@lacklustre.net>
 See web site for more info:
     http://lacklustre.net/projects/crackle/
@@ -36,23 +39,38 @@ crackle has two major modes of operation: Crack TK and Decrypt with LTK.
 Crack TK
 --------
 
+This is the default mode used when providing crackle with an input file
+using ```-i```.
+
 In Crack TK mode, crackle brute forces the TK used during a BLE pairing
 event. crackle exploits the fact that the TK in Just Works(tm) and
-6-digit PIN is a value in the range [0,999999] padded to 128 bits. If
-the required pairing frames are present, the brute force process takes
-less than one second on modern CPUs. The method employed is to compute
-all possible confirm values and to compare them with the existing ones
-of the pairing exchange. Otherwise, with the -s option, it fallbacks on
-another technique that requires less information but takes much more
-time. It simply generates every possible STK/sessionKey and tries to
-decrypt encrypted datas flow.
+6-digit PIN is a value in the range [0,999999] padded to 128 bits.
 
-After the TK has been cracked, crackle goes on to derive the remaining
-keys used to encrypt further communication and uses these to decrypt the
-encrypted L2CAP data. If the LTK is exchanged (typically the first order
-of business after encrypted communication is established), crackle
-outputs this value. The LTK can be used to decrypt any future
-communicaitons between the master and slave.
+crackle employs several methods to perform this brute force: a very fast
+method if all pairing packets are present in the input file, and a slow
+method if a minimum set of packets is present.
+
+To use this mode, launch crackle with an input PCAP or PcapNG file
+containing one or more connections with a BLE pairing conversation.
+crackle will analyze all connections, determine whether it is possible
+to crack a given connection, and automatically choose the best strategy
+to crack each one.
+
+If the TK successfully cracks, crackle will derive the remaining keys
+used to encrypt the rest of the connection and will decrypt any
+encrypted packets that follow. If the LTK is exchanged (typically the
+first thing done after encryption is established) crackle will output
+this value to stdout. The LTK can be used to decrypt any future
+communications between the two endpoints.
+
+Provide crackle with an output file using ```-o``` to create a new PCAP
+file containing the decrypted data (in addition to the already
+unencrypted data).
+
+Example usage:
+
+    $ crackle -i input.pcap -o decrypted.pcap
+
 
 Decrypt with LTK
 ----------------
@@ -60,6 +78,10 @@ Decrypt with LTK
 In Decrypt with LTK mode, crackle uses a user-supplied LTK to decrypt
 communications between a master and slave. This mode is identical to the
 decryption portion of Crack TK mode.
+
+Example usage:
+
+    $ crackle -i encrypted.pcap -o decrypted.pcap -l 81b06facd90fe7a6e9bbd9cee59736a7
 
 
 Running Crackle
@@ -77,11 +99,23 @@ crackle with the -i option:
 
     crackle -i <file.pcap>
 
-If you have all packets, the program should produce output similar to
-this:
+crackle will analyze each connection in the input file and output the
+results of its analysis to stdout. If you have all the components of a
+pairing conversation, the output will look like this:
 
-    Warning: No output file specified. Won't decrypt any packets.
-    TK found: 412741
+    Analyzing connection 0:
+      xx:xx:xx:xx:xx:xx (public) -> yy:yy:yy:yy:yy:yy (public)
+      Found 13 encrypted packets
+
+      Cracking with strategy 0, 20 bits of entropy
+
+      !!!
+      TK found: 412741
+      !!!
+
+      Decrypted 12 packets
+      LTK found: 81b06facd90fe7a6e9bbd9cee59736a7
+
     Specify an output file with -o to decrypt packets!
 
 To decrypt all packets, add the -o option:
@@ -110,10 +144,14 @@ crackle with -i and -l:
 
     crackle -i <file.pcap> -l <ltk>
 
-If you have all the packets, the program should produce output similar
-to this:
+If you both of the required packets, the program should produce output
+similar to this:
 
-    Warning: No output file specified. Won't decrypt any packets.
+    Analyzing connection 0:
+      xx:xx:xx:xx:xx:xx (public) -> yy:yy:yy:yy:yy:yy (public)
+      Found 9 encrypted packets
+      Decrypted 6 packets
+
     Specify an output file with -o to decrypt packets!
 
 To decrypt all packets, add the -o option:

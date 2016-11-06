@@ -23,6 +23,7 @@ Table of Contents
     - Decrypt with LTK
  - Running crackle
  - Sample Files
+ - Frequently Asked Questions
  - See Also
  - Thanks
 
@@ -130,6 +131,12 @@ Grab some sample files for cracking with crackle. Refer to the README
 inside the tarball for more information:
 
 https://lacklustre.net/bluetooth/crackle-sample.tgz
+
+
+Frequently Asked Questions
+==========================
+
+We have compiled a list of [Frequently Asked Questions](FAQ.md).
 
 
 See Also

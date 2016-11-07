@@ -22,3 +22,6 @@ uninstall:
 
 clean:
 	rm -f crackle $(OBJS)
+
+test: crackle
+	cd tests && ./run_tests.pl ../crackle

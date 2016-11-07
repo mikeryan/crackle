@@ -1,0 +1,16 @@
+Found 1 connection
+
+Analyzing connection 0:
+  08:3e:8e:e1:0b:3e (public) -> 78:c5:e5:6e:dd:e8 (public)
+  Found 2 encrypted packets
+  Cracking with strategy 2, slow STK brute force
+
+  !!!
+  TK found: 000000
+  ding ding ding, using a TK of 0! Just Cracks(tm)
+  !!!
+
+  Decrypted 0 packets
+
+Did not decrypt any packets, not writing a new PCAP
+Done, processed 0 total packets, decrypted 0

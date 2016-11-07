@@ -165,6 +165,10 @@ above.
 Sample Files
 ============
 
+The test files included in the ```tests``` directory serve as
+interesting input for playing with crackle. Review the README files
+included in each test's subdirectory.
+
 Grab some sample files for cracking with crackle. Refer to the README
 inside the tarball for more information:
 

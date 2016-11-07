@@ -1,0 +1,10 @@
+Warning: packet is too short to be encrypted (2), skipping
+Found 1 connection
+
+Analyzing connection 0:
+  08:3e:8e:e1:0b:3e (public) -> 78:c5:e5:6e:dd:e8 (public)
+  Found 9 encrypted packets
+  Decrypted 6 packets
+
+Decrypted 6 packets, dumping to PCAP
+Done, processed 303 total packets, decrypted 6

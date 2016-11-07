@@ -48,7 +48,7 @@ foreach my $test (glob('*')) {
     close $args_file;
 
     # dump the whole thing into the out dir
-    $args .= " >& $test/out/actual_output.txt";
+    $args .= " > $test/out/actual_output.txt";
 
     # run the test with crackle
     my $retval = system("$crackle $args");

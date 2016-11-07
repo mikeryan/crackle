@@ -15,6 +15,7 @@ crackle: $(OBJS)
 	$(CC) $(CFLAGS) -o crackle $(OBJS) -lpcap $(LDFLAGS)
 
 install: crackle
+	$(INSTALL) -d $(INSTALL_DIR)
 	$(INSTALL) -m 0755 crackle $(INSTALL_DIR)
 
 uninstall:

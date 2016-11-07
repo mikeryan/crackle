@@ -85,6 +85,8 @@ foreach my $test (glob('*')) {
 }
 
 print "Ran $total tests, $passed passed\n";
-if ($passed < $total && !$verbose) {
-    print "Rerun with -v to get diff of output\n";
+if ($passed < $total) {
+    print "Rerun with -v to get diff of output\n" if !$verbose;
+    exit 1;
 }
+exit 0;

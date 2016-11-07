@@ -1176,7 +1176,7 @@ int main(int argc, char **argv) {
     // arguments
     int opt;
     int verbose = 0, do_tests = 0;
-    int do_tk_crack = 1, do_ltk_decrypt = 0;
+    int do_ltk_decrypt = 0;
     char *pcap_file = NULL;
     char *pcap_file_out = NULL;
     char *ltk = NULL;
@@ -1201,7 +1201,6 @@ int main(int argc, char **argv) {
                 break;
 
             case 'l':
-                do_tk_crack = 0;
                 do_ltk_decrypt = 1;
                 ltk = strdup(optarg);
                 break;

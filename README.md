@@ -17,6 +17,7 @@ crackle was written by Mike Ryan <mikeryan@lacklustre.net>
 See web site for more info:
     http://lacklustre.net/projects/crackle/
 
+![Build Status](https://travis-ci.org/mikeryan/crackle.svg?branch=master "Build Status")
 
 Table of Contents
 =================

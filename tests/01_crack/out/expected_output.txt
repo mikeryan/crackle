@@ -2,7 +2,7 @@ Found 1 connection
 
 Analyzing connection 0:
   08:3e:8e:e1:0b:3e (public) -> 78:c5:e5:6e:dd:e8 (public)
-  Found 2 encrypted packets
+  Found 3 encrypted packets
   Cracking with strategy 0, 20 bits of entropy
 
   !!!
@@ -10,8 +10,8 @@ Analyzing connection 0:
   ding ding ding, using a TK of 0! Just Cracks(tm)
   !!!
 
-  Decrypted 2 packets
+  Decrypted 3 packets
   LTK found: 7f62c053f104a5bbe68b1d896a2ed49c
 
-Decrypted 2 packets, dumping to PCAP
-Done, processed 713 total packets, decrypted 2
+Decrypted 3 packets, dumping to PCAP
+Done, processed 713 total packets, decrypted 3

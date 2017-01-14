@@ -226,7 +226,7 @@ static void enc_data_extractor(crackle_state_t *crackle_state,
             if (lllen > 0 && lllen < 5)
                 printf("Warning: packet is too short to be encrypted (%u), "
                        "skipping\n", lllen);
-            if (lllen > 5)
+            if (lllen >= 5)
                 add_encrypted_packet(state, pcap_idx, flags, bytes + 6, lllen);
         }
 

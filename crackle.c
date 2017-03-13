@@ -278,23 +278,44 @@ static void enc_data_extractor(crackle_state_t *crackle_state,
 
                     // pairing confirm, copy the confirm value
                     else if (command == 0x3) {
+                        uint8_t confirm[16];
+
                         if (l2len != 17) {
                             printf("Warning: confirm is wrong length (%u), skipping\n", l2len);
                             return;
                         }
+
+                        copy_reverse(bytes + 11, confirm, 16);
+
+                        // detect retransmissions
+                        if (state->confirm_found == 1 && memcmp(state->mconfirm, confirm, 16) == 0) {
+                            printf("Warning: duplicate confirm found, skipping\n");
+                            return;
+                        }
+
                         if (state->confirm_found >= 2) {
                             printf("Warning: already saw two confirm values, skipping\n");
                             return;
                         }
                         uint8_t *dest = state->confirm_found == 0 ? state->mconfirm : state->sconfirm;
-                        copy_reverse(bytes + 11, dest, 16);
+                        memcpy(dest, confirm, 16);
                         ++state->confirm_found;
                     }
 
                     // pairing random, copy the random value
                     else if (command == 0x4) {
+                        uint8_t rand[16];
+
                         if (l2len != 17) {
                             printf("Warning: random is wrong length (%u), skipping\n", l2len);
+                            return;
+                        }
+
+                        copy_reverse(bytes + 11, rand, 16);
+
+                        // detect retransmissions
+                        if (state->random_found == 1 && memcmp(state->mrand, rand, 16) == 0) {
+                            printf("Warning: duplicate random found, skipping\n");
                             return;
                         }
                         if (state->random_found >= 2) {
@@ -302,7 +323,7 @@ static void enc_data_extractor(crackle_state_t *crackle_state,
                             return;
                         }
                         uint8_t *dest = state->random_found == 0 ? state->mrand : state->srand;
-                        copy_reverse(bytes + 11, dest, 16);
+                        memcpy(dest, rand, 16);
                         ++state->random_found;
                     }
 

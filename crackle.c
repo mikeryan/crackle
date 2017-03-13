@@ -787,9 +787,9 @@ void do_crack(crackle_state_t *state) {
         if (conn->connect_found) {
             printf("  ");
             print_48(conn->ia);
-            printf(" (%s) -> ", conn->iat == 0 ? "public" : "private");
+            printf(" (%s) -> ", conn->iat == 0 ? "public" : "random");
             print_48(conn->ra);
-            printf(" (%s)\n", conn->rat == 0 ? "public" : "private");
+            printf(" (%s)\n", conn->rat == 0 ? "public" : "random");
         }
         printf("  Found %d encrypted packet%s\n", conn->num_packets,
                 conn->num_packets == 1 ? "" : "s");
@@ -1055,9 +1055,9 @@ void ltk_decrypt(crackle_state_t *state, uint8_t *ltk_bytes) {
         if (conn->connect_found) {
             printf("  ");
             print_48(conn->ia);
-            printf(" (%s) -> ", conn->iat == 0 ? "public" : "private");
+            printf(" (%s) -> ", conn->iat == 0 ? "public" : "random");
             print_48(conn->ra);
-            printf(" (%s)\n", conn->rat == 0 ? "public" : "private");
+            printf(" (%s)\n", conn->rat == 0 ? "public" : "random");
         }
 
         if (!conn->enc_req_found)

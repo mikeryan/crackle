@@ -1,7 +1,7 @@
 Found 1 connection
 
 Analyzing connection 0:
-  5c:f3:70:73:3e:f4 (public) -> 7d:43:82:42:23:16 (private)
+  5c:f3:70:73:3e:f4 (public) -> 7d:43:82:42:23:16 (random)
   Found 71 encrypted packets
   Unable to crack due to the following error:
     LE Secure Connections

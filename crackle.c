@@ -1324,7 +1324,7 @@ int main(int argc, char **argv) {
         }
         state.dumper = pcap_dump_open(pcap_dumpfile, pcap_file_out);
         if (state.dumper == NULL) {
-            warn("pcap_dump_open");
+            printf("Error opening output PCAP: %s\n", pcap_geterr(pcap_dumpfile));
             pcap_close(pcap_dumpfile);
             goto err_out;
         }

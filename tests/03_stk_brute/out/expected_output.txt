@@ -10,7 +10,8 @@ Analyzing connection 0:
   ding ding ding, using a TK of 0! Just Cracks(tm)
   !!!
 
-  Decrypted 0 packets
+  Decrypted 3 packets
+  LTK found: 7f62c053f104a5bbe68b1d896a2ed49c
 
-Did not decrypt any packets, not writing a new PCAP
-Done, processed 0 total packets, decrypted 0
+Decrypted 3 packets, dumping to PCAP
+Done, processed 711 total packets, decrypted 3

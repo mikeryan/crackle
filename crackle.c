@@ -940,7 +940,7 @@ int crack_strategy1(connection_state_t *state) {
  *  0 - 999,999: the cracked TK
  */
 int crack_strategy2(connection_state_t *state, int verbose) {
-    int tk_found, numeric_key;
+    int tk_found = 0, numeric_key;
     int final_tk = 0;
 
     calc_iv(state);

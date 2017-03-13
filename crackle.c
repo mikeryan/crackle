@@ -1028,9 +1028,11 @@ void decrypt(connection_state_t *state) {
                         state->ltk_found = 1;
                         copy_reverse(&packet->dec_data[5], state->ltk, 16);
                     }
+                    goto out;
                 }
             }
         }
+out:
 
         free(crypted);
     }

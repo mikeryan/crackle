@@ -1,0 +1,16 @@
+Found 1 connection
+
+Analyzing connection 0:
+  5c:f3:70:73:3e:f4 (public) -> 69:5b:fb:2c:3f:a7 (random)
+  Found 57 encrypted packets
+  Cracking with strategy 0, 20 bits of entropy
+
+  !!!
+  TK found: 461140
+  !!!
+
+  Decrypted 55 packets
+  LTK found: 9c0469262e521d1d40e095e7c542c5ec
+
+Decrypted 55 packets, dumping to PCAP
+Done, processed 307 total packets, decrypted 55

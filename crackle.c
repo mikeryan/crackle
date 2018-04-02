@@ -39,6 +39,7 @@
 
 #define PFH_BTLE (30006)
 #define BLUETOOTH_LE_LL_WITH_PHDR 256
+#define NORDIC_BLE_SNIFFER_META 157
 #define PPI 192
 
 // CACE PPI headers
@@ -75,6 +76,16 @@ typedef struct _pcap_bluetooth_le_ll_header {
     uint16_t flags;
     uint8_t le_packet[0];
 } __attribute__((packed)) pcap_bluetooth_le_ll_header;
+
+typedef struct _pcap_nordic_ble_sniffer_meta {
+    uint32_t board;
+    uint32_t uart_packets_count;
+    uint8_t flags;
+    uint8_t channel;
+    int8_t rssi;
+    uint16_t event_counter;
+    uint32_t delta_time;
+} __attribute__((packed)) pacp_nordic_ble_sniffer_meta_t;
 
 
 /* misc definitions */
@@ -498,6 +509,13 @@ void packet_handler_ppi(u_char *user, const struct pcap_pkthdr *h, const u_char 
     ppib  = (ppi_btle_t *)(bytes + sizeof(*ppih) + sizeof(*ppifh));
 
     // whew, now that we've got all that out of the way onto the parsing
+    state->btle_handler(state, h, bytes, header_len, h->caplen);
+}
+
+void packet_handler_nordic(u_char *user, const struct pcap_pkthdr *h, const u_char *bytes) {
+    crackle_state_t *state;
+    state = (crackle_state_t *)user;
+    size_t header_len = sizeof(pacp_nordic_ble_sniffer_meta_t);
     state->btle_handler(state, h, bytes, header_len, h->caplen);
 }
 
@@ -1308,6 +1326,9 @@ int main(int argc, char **argv) {
                 break;
         case PPI:
                 packet_handler = packet_handler_ppi;
+                break;
+        case NORDIC_BLE_SNIFFER_META:
+                packet_handler = packet_handler_nordic;
                 break;
         default:
                 printf("Frames inside PCAP file not supported ! dlt_name=%s\n", pcap_datalink_val_to_name(cap_dlt));

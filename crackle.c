@@ -788,7 +788,7 @@ void decrypt(connection_state_t *state);
  * connection_state_t data structure with decrypted packet data and metadata
  * about how many packets were decrypted.
  */
-void do_crack(crackle_state_t *state) {
+void do_crack(crackle_state_t *state, int force_strategy) {
     int i;
     connection_state_t *conn;
     int num_connections = state->current_conn + 1;
@@ -830,6 +830,10 @@ void do_crack(crackle_state_t *state) {
         // FIXME - use strategy 1 when it's implemented
         if (strategy == 1)
             strategy = 2;
+
+        // Override if told so
+        if (force_strategy >= 0)
+            strategy = force_strategy;
 
         // we're definitely cracking
         if (strategy == 0 || strategy == 1) {
@@ -1200,12 +1204,13 @@ int main(int argc, char **argv) {
     int opt;
     int verbose = 0, do_tests = 0;
     int do_ltk_decrypt = 0;
+    int force_strategy = -1;
     char *pcap_file = NULL;
     char *pcap_file_out = NULL;
     char *ltk = NULL;
     uint8_t ltk_bytes[16];
 
-    while ((opt = getopt(argc, argv, "i:o:vthl:")) != -1) {
+    while ((opt = getopt(argc, argv, "i:o:vts:hl:")) != -1) {
         switch (opt) {
             case 'i':
                 pcap_file = strdup(optarg);
@@ -1221,6 +1226,12 @@ int main(int argc, char **argv) {
 
             case 't':
                 do_tests = 1;
+                break;
+
+            case 's':
+                force_strategy = atoi(optarg);
+                if ((force_strategy < 0) || (force_strategy > 2))
+                  printf("Invalid strategy value, won't force.\n");
                 break;
 
             case 'l':
@@ -1324,7 +1335,7 @@ int main(int argc, char **argv) {
     if (do_ltk_decrypt) {
         ltk_decrypt(&state, ltk_bytes);
     } else {
-        do_crack(&state);
+        do_crack(&state, force_strategy);
     }
 
     printf("\n");

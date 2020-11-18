@@ -40,6 +40,7 @@
 #define PFH_BTLE (30006)
 #define BLUETOOTH_LE_LL_WITH_PHDR 256
 #define PPI 192
+#define BLUETOOTH_LE_LL 251
 
 // CACE PPI headers
 typedef struct ppi_packetheader {
@@ -451,6 +452,14 @@ static void packet_decrypter(crackle_state_t *state,
     }
 
     ++state->total_processed;
+}
+
+void packet_handler_lell(u_char *user, const struct pcap_pkthdr *h, const u_char *bytes)
+{
+    crackle_state_t *state;
+    state = (crackle_state_t *)user;
+    size_t header_len = 0;
+    state->btle_handler(state, h, bytes, header_len, h->caplen);
 }
 
 void packet_handler_ble_phdr(u_char *user, const struct pcap_pkthdr *h, const u_char *bytes) {
@@ -1307,6 +1316,7 @@ int main(int argc, char **argv) {
         errx(1, "%s", errbuf);
 
     cap_dlt = pcap_datalink(cap);
+    printf("PCAP contains [%s] frames\n", pcap_datalink_val_to_name(cap_dlt));
     snaplen = pcap_snapshot(cap);
 
     if(verbose)
@@ -1319,6 +1329,9 @@ int main(int argc, char **argv) {
                 break;
         case PPI:
                 packet_handler = packet_handler_ppi;
+                break;
+        case BLUETOOTH_LE_LL:
+                packet_handler = packet_handler_lell;
                 break;
         default:
                 printf("Frames inside PCAP file not supported ! dlt_name=%s\n", pcap_datalink_val_to_name(cap_dlt));

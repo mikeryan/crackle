@@ -40,6 +40,7 @@
 #define PFH_BTLE (30006)
 #define BLUETOOTH_LE_LL_WITH_PHDR 256
 #define NORDIC_BLE_SNIFFER_META 157
+#define NORDIC_BLE 272
 #define PPI 192
 
 // CACE PPI headers
@@ -1341,11 +1342,16 @@ int main(int argc, char **argv) {
         case NORDIC_BLE_SNIFFER_META:
                 packet_handler = packet_handler_nordic;
                 break;
+        case NORDIC_BLE:
+                packet_handler = packet_handler_nordic;
+                break;
         default:
                 printf("Frames inside PCAP file not supported ! dlt_name=%s\n", pcap_datalink_val_to_name(cap_dlt));
                 printf("Frames format supported:\n");
                 printf(" [%d] BLUETOOTH_LE_LL_WITH_PHDR\n", BLUETOOTH_LE_LL_WITH_PHDR);
                 printf(" [%d] PPI\n", PPI);
+                printf(" [%d] NORDIC_BLE_SNIFFER_META\n", NORDIC_BLE_SNIFFER_META);
+                printf(" [%d] NORDIC_BLE\n", NORDIC_BLE);
                 goto err_out;
                 return 1;
     }

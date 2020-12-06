@@ -40,9 +40,8 @@
 #define PFH_BTLE (30006)
 #define BLUETOOTH_LE_LL_WITH_PHDR 256
 #define NORDIC_BLE_SNIFFER_META 157
-#define PPI 192
-#define NORDIC_BLE_SNIFFER_META 157
 #define NORDIC_BLE 272
+#define PPI 192
 
 // CACE PPI headers
 typedef struct ppi_packetheader {

@@ -492,7 +492,7 @@ void packet_handler_ppi(u_char *user, const struct pcap_pkthdr *h, const u_char 
     }
 
     ppih  = (ppi_packet_header_t *)bytes;
-    if (ppih->pph_dlt != DLT_USER0) {
+    if (ppih->pph_dlt != DLT_USER0 && ppih->pph_dlt != DLT_BLUETOOTH_LE_LL) {
         printf("Warning: unknown packet type encountered, skipping\n");
         return;
     }

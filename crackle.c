@@ -801,7 +801,7 @@ int crack_strategy2(connection_state_t *state, int verbose);
 void decrypt(connection_state_t *state);
 
 /*
- * The workhorse: analye all the extracted data, and for each connection
+ * The workhorse: analyze all the extracted data, and for each connection
  * determine the appropriate cracking strategy. Actually attempt to crack the TK
  * and decrypt data for any connection for which that is possible. Populates the
  * connection_state_t data structure with decrypted packet data and metadata

@@ -79,8 +79,12 @@ typedef struct _pcap_bluetooth_le_ll_header {
 } __attribute__((packed)) pcap_bluetooth_le_ll_header;
 
 typedef struct _pcap_nordic_ble_sniffer_meta {
-    uint32_t board;
-    uint32_t uart_packets_count;
+    uint8_t board;
+    uint16_t packet_length;
+    uint8_t protocol_version;
+    uint16_t uart_packets_count;
+    uint8_t packet_id;
+    uint8_t header_length;
     uint8_t flags;
     uint8_t channel;
     int8_t rssi;
@@ -453,6 +457,10 @@ static void packet_decrypter(crackle_state_t *state,
         wh.len -= 4;
         wh.caplen -= 4;
 
+        if (state->decrypted_handler) {
+            state->decrypted_handler(state, h, write_data, offset, new_len);
+        }
+
         pcap_dump((unsigned char *)state->dumper, &wh, write_data);
         free(write_data);
     }
@@ -518,6 +526,18 @@ void packet_handler_nordic(u_char *user, const struct pcap_pkthdr *h, const u_ch
     state = (crackle_state_t *)user;
     size_t header_len = sizeof(pacp_nordic_ble_sniffer_meta_t);
     state->btle_handler(state, h, bytes, header_len, h->caplen);
+}
+
+void decrypted_handler_nordic(crackle_state_t *state,
+                              const struct pcap_pkthdr *h,
+                              const uint8_t *bytes,
+                              off_t offset,
+                              size_t len) {
+        pacp_nordic_ble_sniffer_meta_t *meta;
+
+        meta = (pacp_nordic_ble_sniffer_meta_t *)bytes;
+        meta->packet_length = htole16(le16toh(meta->packet_length) - 4);
+        meta->flags |= 0x08;
 }
 
 /*
@@ -1344,6 +1364,7 @@ int main(int argc, char **argv) {
                 break;
         case NORDIC_BLE:
                 packet_handler = packet_handler_nordic;
+                state.decrypted_handler = decrypted_handler_nordic;
                 break;
         default:
                 printf("Frames inside PCAP file not supported ! dlt_name=%s\n", pcap_datalink_val_to_name(cap_dlt));

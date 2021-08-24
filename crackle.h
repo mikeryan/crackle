@@ -78,6 +78,7 @@ struct _connection_state_t {
 
 struct _crackle_state_t {
     btle_handler_t btle_handler;
+    btle_handler_t decrypted_handler;
 
     unsigned pcap_idx;
 
